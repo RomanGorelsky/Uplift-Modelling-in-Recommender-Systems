@@ -154,7 +154,7 @@ class Causal_Model(Model, ABC):
             
             weights_loss = tf.exp(-self.exp_weight * tf.square(y_diff))
             weights_loss = weights_loss / tf.math.reduce_max(weights_loss)
-            loss_pair = tf.math.log(tf.math.sigmoid(p_diff)) + tf.math.log(tf.math.sigmoid(r_diff))
+            loss_pair = tf.math.log(tf.math.sigmoid(p_diff) + tf.math.sigmoid(r_diff))
             loss_pair = tf.multiply(weights_loss, loss_pair)
             loss_pair = -tf.reduce_mean(loss_pair)
             

@@ -70,7 +70,7 @@ class Evaluator():
             df_ranking = self.get_ranking(df, num_rec=num_rec)
             return np.nanmean(df_ranking.loc[:, self.colname_outcome].values)
         elif measure == 'CPrec':
-            df_ranking = self.get_ranking(df, num_rec=num_rec), df_ranking
+            df_ranking = self.get_ranking(df, num_rec=num_rec)
             return np.nanmean(df_ranking.loc[:, self.colname_effect].values)
         elif measure == 'CPrecIPS':
             df_ranking = self.get_ranking(df, num_rec=num_rec)
