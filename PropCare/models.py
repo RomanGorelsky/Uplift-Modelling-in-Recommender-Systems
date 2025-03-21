@@ -172,7 +172,6 @@ class Causal_Model(Model, ABC):
 
             # Final loss
             loss = self.lambda_1 * loss_pair + loss_click + reg_loss
-            print(loss)
         
         # Calculate gradients
         gradients = tape2.gradient(loss, self.trainable_weights)

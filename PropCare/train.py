@@ -113,7 +113,7 @@ def train_propensity(train_df, vali_df, test_df, flag, num_users, num_items, num
     optim_val_car = 0
     # train_df = train_df[train_df["outcome"] > 0]
     # for epoch in range(flag.epoch):
-    for epoch in range(2):
+    for epoch in range(50):
         print("Sampling negative items...", end=" ")
         j_list = []
         for i in train_df["idx_item"].to_numpy():

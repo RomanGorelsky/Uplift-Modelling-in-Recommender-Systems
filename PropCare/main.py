@@ -72,7 +72,7 @@ def main(flag=flag):
 
         p_pred = p_pred.numpy()
         p_pred_t = 0.25 * ((p_pred - np.mean(p_pred))/ (np.std(p_pred)))
-        p_pred_t = np.clip((p_pred + 0.5), 0.0, 1.0)
+        p_pred_t = np.clip((p_pred_t + 0.5), 0.0, 1.0)
 
         if flag.dataset == "d" or "p":
             flag.thres = 0.70
@@ -126,15 +126,33 @@ def main(flag=flag):
                 item = tf.convert_to_tensor(test_df_t["idx_item"].to_numpy(), dtype=tf.int64)
                 test_t_data = tf.data.Dataset.from_tensor_slices((user, item))
                 r_pred_test = None
+                p_pred_test = None
+
                 for u, i in test_t_data.batch(5000):
-                    _, _, r_batch, _ = model((u, i), training=False)
+                    _, p_batch, r_batch, _ = model((u, i), training=False)
                     if r_pred_test is None:
                         r_pred_test = r_batch
+                        p_pred_test = p_batch
                     else:
                         r_pred_test = tf.concat((r_pred_test, r_batch), axis=0)
+                        p_pred_test = tf.concat((p_pred_test, p_batch), axis=0)
+
+                p_pred_test = p_pred_test.numpy()
                 r_pred_test = r_pred_test.numpy()
+                p_pred_test_t = 0.25 * ((p_pred_test - np.mean(p_pred_test))/ (np.std(p_pred_test)))
+                p_pred_test_t = np.clip((p_pred_test_t + 0.5), 0.0, 1.0)
+
+                t_test_pred = np.where(p_pred_test_t >= 0.7, 1.0, 0.0)
+                p_pred_test = p_pred_test * 0.8
                 r_pred_test = r_pred_test * 0.8
-                test_df_t["relevance"] = r_pred_test
+                test_df_t["propensity_estimate"] = np.clip(p_pred_test, 0.0001, 0.9999)
+                test_df_t["relevance_estimate"] = np.clip(r_pred_test, 0.0001, 0.9999)
+                test_df_t["treated_estimate"] = t_test_pred
+                causal_effect_estimate = \
+                    test_df_t["outcome"] * \
+                    (test_df_t["treated_estimate"] / test_df_t["propensity_estimate"] - \
+                    (1 - test_df_t["treated_estimate"]) / (1 - test_df_t["propensity_estimate"]))
+                test_df_t["causal_effect_estimate"] = np.clip(causal_effect_estimate, -1, 1)
                 test_df_t["pred"] = recommender.predict(test_df_t)
                 evaluator = Evaluator()
                 cp10_tmp_list.append(evaluator.evaluate(test_df_t, 'CPrec', 10))
@@ -148,15 +166,33 @@ def main(flag=flag):
                 item = tf.convert_to_tensor(test_df_t["idx_item"].to_numpy(), dtype=tf.int64)
                 test_t_data = tf.data.Dataset.from_tensor_slices((user, item))
                 r_pred_test = None
+                p_pred_test = None
+
                 for u, i in test_t_data.batch(5000):
-                    _, _, r_batch, _ = model((u, i), training=False)
+                    _, p_batch, r_batch, _ = model((u, i), training=False)
                     if r_pred_test is None:
                         r_pred_test = r_batch
+                        p_pred_test = p_batch
                     else:
                         r_pred_test = tf.concat((r_pred_test, r_batch), axis=0)
+                        p_pred_test = tf.concat((p_pred_test, p_batch), axis=0)
+
+                p_pred_test = p_pred_test.numpy()
                 r_pred_test = r_pred_test.numpy()
+                p_pred_test_t = 0.25 * ((p_pred_test - np.mean(p_pred_test))/ (np.std(p_pred_test)))
+                p_pred_test_t = np.clip((p_pred_test_t + 0.5), 0.0, 1.0)
+
+                t_test_pred = np.where(p_pred_test_t >= 0.65, 1.0, 0.0)
+                p_pred_test = p_pred_test * 0.2
                 r_pred_test = r_pred_test * 0.2
-                test_df_t["relevance"] = r_pred_test
+                test_df_t["propensity_estimate"] = np.clip(p_pred_test, 0.0001, 0.9999)
+                test_df_t["relevance_estimate"] = np.clip(r_pred_test, 0.0001, 0.9999)
+                test_df_t["treated_estimate"] = t_test_pred
+                causal_effect_estimate = \
+                    test_df_t["outcome"] * \
+                    (test_df_t["treated_estimate"] / test_df_t["propensity_estimate"] - \
+                    (1 - test_df_t["treated_estimate"]) / (1 - test_df_t["propensity_estimate"]))
+                test_df_t["causal_effect_estimate"] = np.clip(causal_effect_estimate, -1, 1)
                 test_df_t["pred"] = recommender.predict(test_df_t)
                 evaluator = Evaluator()
                 cp10_tmp_list.append(evaluator.evaluate(test_df_t, 'CPrec', 10))
