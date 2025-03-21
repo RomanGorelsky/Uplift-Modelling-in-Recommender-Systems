@@ -37,6 +37,8 @@ parser.add_argument("--add", default='default', type=str,
                     help="additional information")
 parser.add_argument("--p_weight", default=0.4, type=float,
                     help="weight for p_loss")
+parser.add_argument("--saved_DLMF", default='n', type=str,
+                    help="use saved weights of DLMF")
 flag = parser.parse_args()
 
 
@@ -59,28 +61,33 @@ def main(flag=flag):
         test_user = tf.convert_to_tensor(test_df["idx_user"].to_numpy(), dtype=tf.int32)
         test_item = tf.convert_to_tensor(test_df["idx_item"].to_numpy(), dtype=tf.int64)
         test_data = tf.data.Dataset.from_tensor_slices((test_user, test_item))
-        
         p_pred = None
+
         for u, i in train_data.batch(5000):
-            _, p_batch, _ ,_ = model((u, i), training=False)
+            _, p_batch, _, _ = model((u, i), training=False)
             if p_pred is None:
                 p_pred = p_batch
             else:
                 p_pred = tf.concat((p_pred, p_batch), axis=0)
+
         p_pred = p_pred.numpy()
         p_pred_t = 0.25 * ((p_pred - np.mean(p_pred))/ (np.std(p_pred)))
         p_pred_t = np.clip((p_pred + 0.5), 0.0, 1.0)
+
         if flag.dataset == "d" or "p":
             flag.thres = 0.70
         elif flag.dataset == "ml":
             flag.thres = 0.65
+
         t_pred = np.where(p_pred_t >= flag.thres, 1.0, 0.0)
         if flag.dataset == "d" or "p":
             p_pred = p_pred * 0.8
         if flag.dataset == "ml":
             p_pred = p_pred * 0.2
+
         train_df["propensity"] = np.clip(p_pred, 0.0001, 0.9999)
         train_df["treated"] = t_pred
+
         if flag.dataset == "d":
             cap = 0.03
             lr = 0.001
@@ -97,11 +104,11 @@ def main(flag=flag):
             rf = 0.1
             itr = 100e6
 
-
         with open("dlmf_weights.pkl", "rb") as f:
             saved_state = pickle.load(f)
 
-        recommender = DLMF(num_users, num_items, capping_T=cap, capping_C=cap, learn_rate=lr, reg_factor=rf)
+        recommender = DLMF(num_users, num_items, capping_T = cap, 
+                           capping_C = cap, learn_rate = lr, reg_factor = rf)
 
         recommender.__dict__.update(saved_state)
         print("DLMF weights loaded successfully!")
@@ -111,22 +118,52 @@ def main(flag=flag):
         cp10_tmp_list = []
         cp100_tmp_list = []
         cdcg_tmp_list = []
+        
         if flag.dataset == 'd' or 'p':
             for t in range(num_times):
                 test_df_t = test_df[test_df["idx_time"] == t]
+                user = tf.convert_to_tensor(test_df_t["idx_user"].to_numpy(), dtype=tf.int32)
+                item = tf.convert_to_tensor(test_df_t["idx_item"].to_numpy(), dtype=tf.int64)
+                test_t_data = tf.data.Dataset.from_tensor_slices((user, item))
+                r_pred_test = None
+                for u, i in test_t_data.batch(5000):
+                    _, _, r_batch, _ = model((u, i), training=False)
+                    if r_pred_test is None:
+                        r_pred_test = r_batch
+                    else:
+                        r_pred_test = tf.concat((r_pred_test, r_batch), axis=0)
+                r_pred_test = r_pred_test.numpy()
+                r_pred_test = r_pred_test * 0.8
+                test_df_t["relevance"] = r_pred_test
                 test_df_t["pred"] = recommender.predict(test_df_t)
                 evaluator = Evaluator()
                 cp10_tmp_list.append(evaluator.evaluate(test_df_t, 'CPrec', 10))
                 cp100_tmp_list.append(evaluator.evaluate(test_df_t, 'CPrec', 100))
                 cdcg_tmp_list.append(evaluator.evaluate(test_df_t, 'CDCG', 100000))
+                _ = evaluator.get_sorted(test_df_t)
         else:
             for t in [0]:
                 test_df_t = test_df[test_df["idx_time"] == t]
+                user = tf.convert_to_tensor(test_df_t["idx_user"].to_numpy(), dtype=tf.int32)
+                item = tf.convert_to_tensor(test_df_t["idx_item"].to_numpy(), dtype=tf.int64)
+                test_t_data = tf.data.Dataset.from_tensor_slices((user, item))
+                r_pred_test = None
+                for u, i in test_t_data.batch(5000):
+                    _, _, r_batch, _ = model((u, i), training=False)
+                    if r_pred_test is None:
+                        r_pred_test = r_batch
+                    else:
+                        r_pred_test = tf.concat((r_pred_test, r_batch), axis=0)
+                r_pred_test = r_pred_test.numpy()
+                r_pred_test = r_pred_test * 0.2
+                test_df_t["relevance"] = r_pred_test
                 test_df_t["pred"] = recommender.predict(test_df_t)
                 evaluator = Evaluator()
                 cp10_tmp_list.append(evaluator.evaluate(test_df_t, 'CPrec', 10))
                 cp100_tmp_list.append(evaluator.evaluate(test_df_t, 'CPrec', 100))
                 cdcg_tmp_list.append(evaluator.evaluate(test_df_t, 'CDCG', 100000))
+                _ = evaluator.get_sorted(test_df_t)
+
         cp10 = np.mean(cp10_tmp_list)
         cp100 = np.mean(cp100_tmp_list)
         cdcg = np.mean(cdcg_tmp_list)

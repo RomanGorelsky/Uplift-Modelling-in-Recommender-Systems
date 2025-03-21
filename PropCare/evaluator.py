@@ -22,10 +22,15 @@ class Evaluator():
     def get_ranking(self, df, num_rec=10):
         df = df.sort_values(by=[self.colname_user, self.colname_prediction], ascending=False)
         df_ranking = df.groupby(self.colname_user).head(num_rec)
+        if num_rec == 10:
+            df_ranking.to_csv('df_ranking_10.csv')
+        if num_rec == 100:
+            df_ranking.to_csv('df_ranking_100.csv') 
         return df_ranking
 
     def get_sorted(self, df):
         df = df.sort_values(by=[self.colname_user, self.colname_prediction], ascending=False)
+        df.to_csv('df_sorted.csv')
         return df
 
     def capping(self, df, cap_prop=None):
