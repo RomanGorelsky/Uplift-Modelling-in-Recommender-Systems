@@ -9,6 +9,7 @@ from evaluator import Evaluator
 from sklearn.metrics import mean_absolute_error
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
+from tensorflow.keras.models import load_model
 import random
 import datetime
 import os
@@ -105,10 +106,10 @@ def train_propensity(train_df, vali_df, test_df, flag, num_users, num_items, num
     from sklearn.metrics import mean_absolute_error, mean_squared_error
 
     model = Causal_Model(num_users, num_items, flag, None, None, popular)
+    # model = load_model(plotpath + flag.add + "/model.keras", custom_objects={"Causal_Model": Causal_Model})
+    # model.load_weights(plotpath + flag.add + "/.weights.h5")
     
     # Сохранение весов после обучения
-    
-    # model.save_weights("./results/default/.weights.h5")  # Замени путь на нужный
 
     optim_val_car = 0
     # train_df = train_df[train_df["outcome"] > 0]
@@ -151,12 +152,13 @@ def train_propensity(train_df, vali_df, test_df, flag, num_users, num_items, num
         val_obj = tau_res
         if abs(val_obj) > optim_val_car:
             optim_val_car = val_obj
-            if not os.path.isdir(plotpath+ '/' + flag.add):
-                os.makedirs(plotpath+ '/' + flag.add)
-            model.save_weights(plotpath + flag.add + "/.weights.h5")
+            if not os.path.isdir(plotpath + '/' + flag.add):
+                os.makedirs(plotpath + '/' + flag.add)
+            model.save(plotpath + flag.add + "/model.keras")
+            # model.save_weights(plotpath + flag.add + "/.weights.h5")
             print("Model saved!")
-            print(plotpath + flag.add + "/.weights.h5")
-    model.load_weights(plotpath + flag.add + "/.weights.h5")
+            print(plotpath + flag.add + "/model.keras")
+    
     return model
 
 if __name__ == "__main__":

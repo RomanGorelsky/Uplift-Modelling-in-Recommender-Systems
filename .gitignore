@@ -1,1 +1,5 @@
-/PropCare/CausalNBR
+/PropCare/CausalNBR/data
+.DS_Store
+PropCare/df_sorted.csv
+PropCare/df_ranking_100.csv
+PropCare/df_ranking_10.csv

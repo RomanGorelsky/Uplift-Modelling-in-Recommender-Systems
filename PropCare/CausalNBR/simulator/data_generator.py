@@ -5,7 +5,7 @@ from recommender import RandomBase, PopularBase, NeighborBase, LMF
 
 class DataGenerator():
     def __init__(self, rate_prior=0.1,
-                 colname_user='idx_user', colname_item='idx_item',
+                 colname_user='idx_user', colname_item='idx_item', colname_title = "item_title",
                  colname_outcome='outcome',
                  colname_outcome_treated='outcome_T', colname_outcome_control='outcome_C',
                  colname_treatment='treated', colname_propensity='propensity',
@@ -15,6 +15,7 @@ class DataGenerator():
         self.rate_prior = rate_prior
         self.colname_user = colname_user
         self.colname_item = colname_item
+        self.colname_title = colname_title
         self.colname_outcome = colname_outcome
         self.colname_outcome_treated = colname_outcome_treated
         self.colname_outcome_control = colname_outcome_control
@@ -116,10 +117,19 @@ class DataGenerator():
             df = df.sort_values(by=[self.colname_user, self.colname_prediction], ascending=False)
             # df.loc[:, 'rank'] = np.repeat(np.arange(self.num_items) + 1, self.num_users)
             df.loc[:, 'rank'] = np.tile(np.arange(self.num_items) + 1, self.num_users) # debugged
+            
+            '''
+            df: idx_user idx_item prob_outcome = pred rank      prop    
+                1            1       0.999               1      1 / 1.5 = 2/3 * num_rec
+                1            2       0.9                 2      0.5 / 1.5 = 1/3
+                2            1       0.999               1
+                2            2       0.9                 2
+            sum_propensity = 1 / 1^beta + 1 / 2^beta + ... 1 / num_items^beta = 1.5
+            '''
 
             # scaling
             if mode in ['rank', 'rankC', 'rankT']:
-                df.loc[:, self.colname_propensity] = 1.0 / np.power(df.loc[:, 'rank'], scale_factor)
+                df.loc[:, self.colname_propensity] = 1.0 / np.power(df.loc[:, 'rank'], scale_factor) 
                 sum_propensity = np.sum(1.0 / np.power(np.arange(self.num_items) + 1, scale_factor))
             elif mode in ['logrank', 'logrankC', 'logrankT']:
                 df.loc[:, self.colname_propensity] = 1.0 / np.power(np.log2(df.loc[:, 'rank'] + 1), scale_factor)
@@ -168,11 +178,12 @@ class DataGenerator():
     def get_observation(self, with_additional_info=False):
         if with_additional_info:
             return self.df_data.loc[:,
-                   [self.colname_user, self.colname_item, self.colname_treatment, self.colname_outcome, self.colname_propensity,
+                   [self.colname_user, self.colname_item, self.colname_title, self.colname_treatment, 
+                    self.colname_outcome, self.colname_propensity,
                     self.colname_effect, self.colname_expectation, self.colname_prediction,
                     'prob_outcome_treated', 'prob_outcome_control', 'prob_outcome']]
         else:
-            return self.df_data.loc[:, [self.colname_user, self.colname_item, self.colname_treatment, self.colname_outcome, self.colname_propensity, self.colname_effect]]
+            return self.df_data.loc[:, [self.colname_user, self.colname_item, self.colname_title, self.colname_treatment, self.colname_outcome, self.colname_propensity, self.colname_effect]]
 
     def get_groundtruth(self):
         return self.df_data.loc[:, [self.colname_user, self.colname_item, self.colname_effect]]

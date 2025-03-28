@@ -109,9 +109,17 @@ func_prepare_dunnhumby <- function(path_dir, min_time_user=5, min_time_item=5, m
     transaction_data <- func_conv_item_id(transaction_data, ref)
     causal_data <- func_conv_item_id(causal_data, ref)
     product <- func_conv_item_id(product, ref)
+    product$item_title <- product$item_id
   }else{
+    #ref <- product[COMMODITY_DESC != "NO COMMODITY DESCRIPTION" & SUB_COMMODITY_DESC != "NO SUBCOMMODITY DESCRIPTION", 
+    #               .(item_id, new_id = paste(COMMODITY_DESC, SUB_COMMODITY_DESC, sep="::"))]
+    #product <- product[COMMODITY_DESC != "NO COMMODITY DESCRIPTION" & SUB_COMMODITY_DESC != "NO SUBCOMMODITY DESCRIPTION", ]
     func_print_log("Items' granularity is PRODUCT_ID", with_time=F)
+    #func_print_log(product, with_time=F)
+    #func_print_log(ref, with_time=F)
+    #roduct$item_title <- ref$new_id
   }
+  func_print_log(head(product, 3), with_time=F)
   
   # sum(is.na(causal_data$item_id))
   # pre_transaction_data <- transaction_data[time_id < min(causal_data[, unique(time_id)])]
@@ -232,6 +240,8 @@ func_cnt_logs <- function(hist_outcomes, hist_treatments, ref_users, ref_items){
   unique_items <- sort(unique(ref_items$item_id))
   cnt_logs <- data.table(user_id = rep(unique_users, length(unique_items)),
                          item_id = rep(unique_items, each = length(unique_users)))
+  cnt_logs$item_title <- cnt_logs$item_id
+  func_print_log(head(cnt_logs, 3), with_time=F)
  
   
   func_print_log("Count important numbers.")
@@ -305,7 +315,7 @@ if(by_category){
 if(!dir.exists(dirname(save_name))){
   dir.create(dirname(save_name))
 }
-write.csv(cnt_logs[, .(idx_user, idx_item, num_visit, num_treatment, num_outcome, num_treated_outcome)], 
+write.csv(cnt_logs[, .(idx_user, idx_item, item_title, num_visit, num_treatment, num_outcome, num_treated_outcome)], 
           save_name, row.names=F)
 
 # product level
@@ -334,5 +344,5 @@ if(by_category){
 if(!dir.exists(dirname(save_name))){
   dir.create(dirname(save_name))
 }
-write.csv(cnt_logs[, .(idx_user, idx_item, num_visit, num_treatment, num_outcome, num_treated_outcome)], 
+write.csv(cnt_logs[, .(idx_user, idx_item, item_title, num_visit, num_treatment, num_outcome, num_treated_outcome)], 
           save_name, row.names=F)

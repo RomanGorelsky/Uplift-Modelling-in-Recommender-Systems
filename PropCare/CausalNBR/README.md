@@ -62,7 +62,7 @@ Regarding some arguments,
 
 After tuning, we obtained best hyper parameter sets for ML-100k as,
 ```bash:sample
--crp iter:5000000+dim_factor:100+learn_rate:0.01+reg_factor:0.1 -cwp iter:40000000+dim_factor:100+learn_rate:0.01+reg_factor:0.001
+-crp iter:2000000+dim_factor:100+learn_rate:0.01+reg_factor:0.03 -cwp iter:43000000+dim_factor:100+learn_rate:0.01+reg_factor:0.001
 ```
 and for ML-1M as,
 ```bash:sample
@@ -72,7 +72,7 @@ and for ML-1M as,
 ### 3. Generate a semi-synthetic dataset 
 To generate semi-synthetic dataset from ***ML-100k*** dataset by default setting,
 ```bash:sample
-python prepare_data_ml.py -vml 100k -nr 100 -mas logrank -ora 5.0 -scao 1.0 -scap 1.0 -crp iter:5000000+dim_factor:100+learn_rate:0.01+reg_factor:0.1 -cwp iter:40000000+dim_factor:100+learn_rate:0.01+reg_factor:0.001
+python prepare_data_ml.py -vml 100k -nr 100 -mas logrank -ora 5.0 -scao 1.0 -scap 1.0 -crp iter:2000000+dim_factor:100+learn_rate:0.01+reg_factor:0.03 -cwp iter:43000000+dim_factor:100+learn_rate:0.01+reg_factor:0.001
 ```
 The output folder is *data/preprocessed/data/synthetic/ML_100k_rank100_offset5.0_scaling1.0*.
 

@@ -122,6 +122,7 @@ if __name__ == '__main__':
 
     df_train = generate(time_length=args.time_length_train, trim_data=args.trim_train_data, with_additional_info=False)
     df_train.to_csv(dir_data_prepared + 'data_train.csv', index=False)
+    print(df_train.head(5))
 
     df_vali = generate(time_length=args.time_length_vali, trim_data=False, with_additional_info=True)
     df_vali.to_csv(dir_data_prepared + 'data_vali.csv', index=False)

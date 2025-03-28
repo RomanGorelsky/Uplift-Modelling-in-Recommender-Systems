@@ -99,7 +99,7 @@ if __name__ == '__main__':
         dict_params[cond[0]] = cond[1]
     data_generator.predict_watch(learn_rate=float(dict_params['learn_rate']), iter=int(dict_params['iter']),
                                   dim_factor=int(dict_params['dim_factor']), reg_factor=float(dict_params['reg_factor']))
-
+    
     # set ground truth probability
     data_generator.set_prob_outcome_treated(offset=args.offset_rating)
     data_generator.set_prob_outcome_control(scaling_outcome=args.scaling_outcome)
@@ -126,7 +126,6 @@ if __name__ == '__main__':
     # generate outcomes (potential and observed)
     data_generator.assign_outcome()
     # save data
-
     data_generator.df_data.to_csv(dir_data_prepared + 'data_vali.csv', index=False)
 
     # test
