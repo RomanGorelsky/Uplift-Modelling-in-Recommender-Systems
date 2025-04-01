@@ -4,7 +4,7 @@ import random
 class Recommender(object):
 
     def __init__(self, num_users, num_items,
-                 colname_user = 'idx_user', colname_item = 'idx_item',
+                 colname_user = 'idx_user', colname_item = 'idx_item', colname_title = 'item_title',
                  colname_outcome = 'outcome', colname_prediction='pred',
                  colname_treatment='treated', colname_propensity='propensity'):
         super().__init__()
@@ -13,6 +13,7 @@ class Recommender(object):
         self.num_items = num_items
         self.colname_user = colname_user
         self.colname_item = colname_item
+        self.item_title = colname_title
         self.colname_outcome = colname_outcome
         self.colname_prediction = colname_prediction
         self.colname_treatment = colname_treatment

@@ -65,6 +65,10 @@ if __name__ == '__main__':
 
     dir_data_prepared = 'data/synthetic/ML_'+ args.version_of_movielens + '_' + args.mode_assignment + str(args.num_rec) \
                         + '_offset' + format(args.offset_rating, '.1f') + '_scaling' + format(args.scaling_propensity, '.1f') + '/'
+    
+    df_items = pd.read_table('data/movielens/ml-100k/u.item', usecols=[0, 1],
+                                   names=('idx_item', 'item_title'), encoding='latin-1',
+                                        sep='|')
 
     print('dir_data_prepared is {}.'.format(dir_data_prepared))
 
@@ -116,9 +120,22 @@ if __name__ == '__main__':
     if args.trim_train_data:
         temp_bool = (data_generator.df_data.loc[:, 'treated'] + data_generator.df_data.loc[:, 'outcome']) > 0
         df_data_train = data_generator.df_data.loc[temp_bool,:]
+        df_data_train = df_data_train.merge(df_items, on=['idx_item'], how='left')
+        df_data_train = df_data_train[['idx_user', 'idx_item', 'item_title', 
+                                       'rating', 'watch', 'idx_time', 'pred_rating', 
+                                       'pred_watch', 'prob_outcome_treated', 'prob_outcome_control', 
+                                       'pred', 'rank', 'propensity', 'treated', 'outcome', 'outcome_T', 
+                                       'outcome_C', 'causal_effect']]
         df_data_train.to_csv(dir_data_prepared + 'data_train.csv', index=False)
     else:
-        data_generator.df_data.to_csv(dir_data_prepared + 'data_train.csv', index=False)
+        df_data_train = data_generator.df_data
+        df_data_train = df_data_train.merge(df_items, on=['idx_item'], how='left')
+        df_data_train = df_data_train[['idx_user', 'idx_item', 'item_title', 
+                                       'rating', 'watch', 'idx_time', 'pred_rating', 
+                                       'pred_watch', 'prob_outcome_treated', 'prob_outcome_control', 
+                                       'pred', 'rank', 'propensity', 'treated', 'outcome', 'outcome_T', 
+                                       'outcome_C', 'causal_effect']]
+        df_data_train.to_csv(dir_data_prepared + 'data_train.csv', index=False)
 
     # vali
     # generate recommendation
@@ -126,7 +143,14 @@ if __name__ == '__main__':
     # generate outcomes (potential and observed)
     data_generator.assign_outcome()
     # save data
-    data_generator.df_data.to_csv(dir_data_prepared + 'data_vali.csv', index=False)
+    df_data_vali = data_generator.df_data
+    df_data_vali = df_data_vali.merge(df_items, on=['idx_item'], how='left')
+    df_data_vali = df_data_vali[['idx_user', 'idx_item', 'item_title', 
+                                 'rating', 'watch', 'idx_time', 'pred_rating', 
+                                 'pred_watch', 'prob_outcome_treated', 'prob_outcome_control', 
+                                 'pred', 'rank', 'propensity', 'treated', 'outcome', 'outcome_T', 
+                                 'outcome_C', 'causal_effect']]
+    df_data_vali.to_csv(dir_data_prepared + 'data_vali.csv', index=False)
 
     # test
     # generate recommendation
@@ -134,7 +158,14 @@ if __name__ == '__main__':
     # generate outcomes (potential and observed)
     data_generator.assign_outcome()
     # save data
-    data_generator.df_data.to_csv(dir_data_prepared + 'data_test.csv', index=False)
+    df_data_test = data_generator.df_data
+    df_data_test = df_data_test.merge(df_items, on=['idx_item'], how='left')
+    df_data_test = df_data_test[['idx_user', 'idx_item', 'item_title', 
+                                 'rating', 'watch', 'idx_time', 'pred_rating', 
+                                 'pred_watch', 'prob_outcome_treated', 'prob_outcome_control', 
+                                 'pred', 'rank', 'propensity', 'treated', 'outcome', 'outcome_T', 
+                                 'outcome_C', 'causal_effect']]
+    df_data_test.to_csv(dir_data_prepared + 'data_test.csv', index=False)
 
     print('Data prepared.')
     print('num_users: {}'.format(data_generator.num_users))

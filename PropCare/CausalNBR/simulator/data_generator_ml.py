@@ -7,7 +7,7 @@ from recommender import RandomBase, PopularBase, NeighborBase, LMF, MF
 class DataGeneratorML():
     def __init__(self, rate_prior=0.1,
                  colname_user='idx_user', colname_item='idx_item',
-                 colname_title='item_title', colname_outcome='outcome',
+                 colname_outcome='outcome',
                  colname_outcome_treated='outcome_T', colname_outcome_control='outcome_C',
                  colname_treatment='treated', colname_propensity='propensity',
                  colname_effect='causal_effect', colname_expectation='causal_effect_expectation',
@@ -16,7 +16,6 @@ class DataGeneratorML():
         self.rate_prior = rate_prior
         self.colname_user = colname_user
         self.colname_item = colname_item
-        self.item_title = colname_title
         self.colname_outcome = colname_outcome
         self.colname_outcome_treated = colname_outcome_treated
         self.colname_outcome_control = colname_outcome_control
@@ -40,10 +39,6 @@ class DataGeneratorML():
                                    names=('idx_user', 'idx_item', 'rating', 'timestamp'),
                                         sep='\t')
             self.df_raw = self.df_raw.drop(columns='timestamp')
-            self.df_items = pd.read_table('data/movielens/ml-100k/u.item', usecols=[0, 1],
-                                   names=('idx_item', 'item_title'), encoding='latin-1',
-                                        sep='|')
-            self.df_raw = self.df_raw.merge(self.df_items, on=[self.colname_item], how='inner')
             dir_load = 'data/movielens/ml-100k'
 
         elif version_of_movielens == '1m':
