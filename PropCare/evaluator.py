@@ -1,23 +1,28 @@
 import numpy as np
+from scipy.stats import kendalltau
+from scipy.stats import spearmanr
 
 class Evaluator():
-
     def __init__(self,
                  colname_user='idx_user', colname_item='idx_item', colname_time='idx_time',
                  colname_outcome='outcome', colname_prediction='pred',
                  colname_treatment='treated', colname_propensity='propensity',
-                 colname_effect='causal_effect', colname_estimate='causal_effect_estimate'):
+                 colname_effect='causal_effect', colname_estimate='causal_effect_estimate',
+                 colname_relavance = 'relevance_estimate', colname_popularity = 'popularity'):
+
 
         self.rank_k = None
         self.colname_user = colname_user
         self.colname_item = colname_item
         self.colname_time = colname_time
         self.colname_outcome = colname_outcome
+        self.colname_relavance = colname_relavance
         self.colname_prediction = colname_prediction
         self.colname_treatment = colname_treatment
         self.colname_propensity = colname_propensity
         self.colname_effect = colname_effect
         self.colname_estimate = colname_estimate
+        self.colname_popularity = colname_popularity
 
     def get_ranking(self, df, num_rec=10):
         df = df.sort_values(by=[self.colname_user, self.colname_prediction], ascending=False)
@@ -53,6 +58,38 @@ class Evaluator():
             pvalue = np.clip(pvalue, cap_prop, 1-cap_prop)
             df[self.colname_propensity] = pvalue
         return df
+    
+    def kendall_tau_per_user(self, df, user_col, rank_col_1, rank_col_2):
+        taus = []
+        for _, group in df.groupby(user_col):
+            if len(group) > 1:
+                order_1 = group[rank_col_1].rank(ascending=False, method='first')
+                print(order_1)
+                order_2 = group[rank_col_2].rank(ascending=False, method='first')
+                print(order_2)
+                tau, _ = kendalltau(order_1, order_2)
+                taus.append(tau)
+        return np.nanmean(taus)
+    
+
+    def spearman_per_user(self,df, user_col, rank_col_1, rank_col_2):
+        rhos = []
+        for _, group in df.groupby(user_col):
+            if len(group) > 1:
+                order_1 = group[rank_col_1].rank(ascending=False, method='first')
+                order_2 = group[rank_col_2].rank(ascending=False, method='first')
+                rho, _ = spearmanr(order_1, order_2)
+                rhos.append(rho)
+        return np.nanmean(rhos)
+    
+    def avg_position_diff(self,df, user_col, item_col, pred_col, rel_col):
+        diffs = []
+        for _, group in df.groupby(user_col):
+            group = group.copy()
+            group['rank_pred'] = group[pred_col].rank(ascending=False, method='first')
+            group['rank_rel'] = group[rel_col].rank(ascending=False, method='first')
+            diffs.extend(np.abs(group['rank_pred'] - group['rank_rel']))
+        return np.nanmean(diffs)
 
 
     def evaluate(self, df_origin, measure, num_rec, mode = 'ASIS', cap_prop=0.0):
@@ -112,6 +149,46 @@ class Evaluator():
             return float(np.nanmean(df.groupby(self.colname_user).agg({self.colname_effect: self.gaucp})))
         elif measure == 'CAUCN':
             return float(np.nanmean(df.groupby(self.colname_user).agg({self.colname_effect: self.gaucn})))
+        elif measure == 'RecallR':
+            recall_scores = df.groupby(self.colname_user).apply(
+                lambda x: self.recall_at_k(x, sort_by=self.colname_relavance)
+            )
+            return float(np.nanmean(recall_scores))
+        elif measure == 'RecallP':
+            recall_scores = df.groupby(self.colname_user).apply(
+                lambda x: self.recall_at_k(x, sort_by=self.colname_popularity)
+            )
+            return float(np.nanmean(recall_scores))
+        elif measure == 'PrecisionS':
+            precision_scores = df.groupby(self.colname_user).apply(
+                lambda x: self.precision_at_k(x, sort_by=self.colname_prediction)
+            )
+            return float(np.nanmean(precision_scores))
+        elif measure == 'PrecisionR':
+            precision_scores = df.groupby(self.colname_user).apply(
+                lambda x: self.precision_at_k(x, sort_by=self.colname_relavance)
+            )
+            return float(np.nanmean(precision_scores))
+        elif measure == 'PrecisionP':
+            precision_scores = df.groupby(self.colname_user).apply(
+                lambda x: self.precision_at_k(x, sort_by=self.colname_popularity)
+            )
+            return float(np.nanmean(precision_scores))
+        elif measure == 'NDCGS':
+            ndcg_scores = df.groupby(self.colname_user).apply(
+                lambda x: self.ndcg_at_k(x, sort_by=self.colname_prediction, label_col=self.colname_outcome)
+            )
+            return float(np.nanmean(ndcg_scores))
+        elif measure == 'NDCGR':
+            ndcg_scores = df.groupby(self.colname_user).apply(
+                lambda x: self.ndcg_at_k(x, sort_by=self.colname_relavance, label_col=self.colname_outcome)
+            )
+            return float(np.nanmean(ndcg_scores))
+        elif measure == 'NDCGP':
+            ndcg_scores = df.groupby(self.colname_user).apply(
+                lambda x: self.ndcg_at_k(x, sort_by=self.colname_popularity, label_col=self.colname_outcome)
+            )
+            return float(np.nanmean(ndcg_scores))
         else:
             print('measure:"' + measure + '" is not supported! ')
 
@@ -176,4 +253,33 @@ class Evaluator():
     def arn(self, x):
         return self.ave_rank(x < 0)
 
+    def dcg_at_k(self, rel_values):
+        k = min(self.rank_k, len(rel_values))
+        return np.sum(rel_values[:k] / np.log2(np.arange(k) + 2))
 
+    def ndcg_at_k(self, df_user, sort_by, label_col='outcome'):
+        df_user = df_user.sort_values(by=sort_by, ascending=False)
+        rel = df_user[label_col].values
+
+        k = min(self.rank_k, len(rel))
+        ideal_rel = np.sort(rel)[::-1]  # для идеального ранжирования
+
+        dcg = self.dcg_at_k(rel)
+        idcg = self.dcg_at_k(ideal_rel)
+
+        return dcg / idcg if idcg > 0 else np.nan
+    
+    def recall_at_k(self, df_user, sort_by):
+        df_user = df_user.sort_values(by=sort_by, ascending=False)
+        k = min(self.rank_k, len(df_user))
+        rel_in_top_k = df_user['outcome'].iloc[:k].sum()
+        total_rel = df_user['outcome'].sum()
+
+        return rel_in_top_k / total_rel if total_rel > 0 else np.nan
+    
+    def precision_at_k(self, df_user, sort_by):
+        df_user = df_user.sort_values(by=sort_by, ascending=False)
+        k = min(self.rank_k, len(df_user))
+        rel_in_top_k = df_user['outcome'].iloc[:k].sum()
+        
+        return rel_in_top_k / k if k > 0 else np.nan
