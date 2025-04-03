@@ -31,7 +31,7 @@ parser.add_argument("--dataset", default='d', type=str,
                     help="the dataset used")
 parser.add_argument("--batch_size", default=5096, type=int,
                     help="the batch size")
-parser.add_argument("--repeat", default=3, type=int,
+parser.add_argument("--repeat", default=1, type=int,
                     help="how many time to run the model")
 parser.add_argument("--add", default='default', type=str,
                     help="additional information")
@@ -46,6 +46,19 @@ def main(flag=flag):
     cp10list = []
     cp100list = []
     cdcglist = []
+
+    ndcglist_rel = []
+    ndcglist_pred = []
+    ndcglist_pop = []
+
+    recalllist_rel = []
+    recalllist_pred = []
+    recalllist_pop = []
+
+    precisionlist_rel = []
+    precisionlist_pred = []
+    precisionlist_pop = []
+
     random_seed = int(233)
     for epoch in range(flag.repeat):
         train_df, vali_df, test_df, num_users, num_items, num_times, popular = prepare_data(flag)
@@ -119,6 +132,18 @@ def main(flag=flag):
         cp100_tmp_list = []
         cdcg_tmp_list = []
         
+        ndcg_tmp_list_rel = []
+        ndcg_tmp_list_pred = []
+        ndcg_tmp_list_pop = []
+
+        recall_tmp_list_rel = []
+        recall_tmp_list_pred = []
+        recall_tmp_list_pop = []
+
+        precision_tmp_list_rel = []
+        precision_tmp_list_pred = []
+        precision_tmp_list_pop = []
+
         if flag.dataset == 'd' or 'p':
             for t in range(num_times):
                 test_df_t = test_df[test_df["idx_time"] == t]
@@ -153,11 +178,36 @@ def main(flag=flag):
                     (test_df_t["treated_estimate"] / test_df_t["propensity_estimate"] - \
                     (1 - test_df_t["treated_estimate"]) / (1 - test_df_t["propensity_estimate"]))
                 test_df_t["causal_effect_estimate"] = np.clip(causal_effect_estimate, -1, 1)
+                popularity = test_df_t.groupby("idx_item")["idx_user"].nunique().reset_index()
+                popularity.columns = ["idx_item", 'popularity']
+                test_df_t = test_df_t.merge(popularity, on="idx_item", how='left')
                 test_df_t["pred"] = recommender.predict(test_df_t)
                 evaluator = Evaluator()
                 cp10_tmp_list.append(evaluator.evaluate(test_df_t, 'CPrec', 10))
                 cp100_tmp_list.append(evaluator.evaluate(test_df_t, 'CPrec', 100))
                 cdcg_tmp_list.append(evaluator.evaluate(test_df_t, 'CDCG', 100000))
+
+                
+                ndcg_tmp_list_rel.append(evaluator.evaluate(test_df_t, 'NDCGR', 10))
+                ndcg_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'NDCGS', 10))
+                ndcg_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'NDCGP', 10))
+
+                recall_tmp_list_rel.append(evaluator.evaluate(test_df_t, 'RecallR', 10))
+                recall_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'RecallS', 10))
+                recall_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'RecallP', 10))
+
+                precision_tmp_list_rel.append(evaluator.evaluate(test_df_t, 'PrecisionR', 10))
+                precision_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'PrecisionR', 10))
+                precision_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'PrecisionR', 10))
+
+                kendall_score = evaluator.kendall_tau_per_user(test_df_t, 'idx_user', 'pred', 'relevance_estimate')
+                spearman_score = evaluator.spearman_per_user(test_df_t, 'idx_user', 'pred', 'relevance_estimate')
+                pos_diff = evaluator.avg_position_diff(test_df_t, 'idx_user', 'idx_item', 'pred', 'relevance_estimate')
+
+                print(f"Kendall Tau: {kendall_score:.4f}")
+                print(f"Spearman Rho: {spearman_score:.4f}")
+                print(f"Average Rank Position Difference: {pos_diff:.4f}")
+
                 _ = evaluator.get_sorted(test_df_t)
         else:
             for t in [0]:
@@ -193,25 +243,87 @@ def main(flag=flag):
                     (test_df_t["treated_estimate"] / test_df_t["propensity_estimate"] - \
                     (1 - test_df_t["treated_estimate"]) / (1 - test_df_t["propensity_estimate"]))
                 test_df_t["causal_effect_estimate"] = np.clip(causal_effect_estimate, -1, 1)
+                popularity = test_df_t.groupby("idx_item")["idx_user"].nunique().reset_index()
+                popularity.columns = ["idx_item", 'popularity']
+                test_df_t = test_df_t.merge(popularity, on="idx_item", how='left')
                 test_df_t["pred"] = recommender.predict(test_df_t)
                 evaluator = Evaluator()
                 cp10_tmp_list.append(evaluator.evaluate(test_df_t, 'CPrec', 10))
                 cp100_tmp_list.append(evaluator.evaluate(test_df_t, 'CPrec', 100))
                 cdcg_tmp_list.append(evaluator.evaluate(test_df_t, 'CDCG', 100000))
+
+                ndcg_tmp_list_rel.append(evaluator.evaluate(test_df_t, 'NDCGR', 10))
+                ndcg_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'NDCGS', 10))
+                ndcg_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'NDCGP', 10))
+
+                recall_tmp_list_rel.append(evaluator.evaluate(test_df_t, 'RecallR', 10))
+                recall_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'RecallS', 10))
+                recall_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'RecallP', 10))
+
+                precision_tmp_list_rel.append(evaluator.evaluate(test_df_t, 'PrecisionR', 10))
+                precision_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'PrecisionS', 10))
+                precision_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'PrecisionP', 10))
+
+                kendall_score = evaluator.kendall_tau_per_user(test_df_t, 'idx_user', 'pred', 'relevance_estimate')
+                spearman_score = evaluator.spearman_per_user(test_df_t, 'idx_user', 'pred', 'relevance_estimate')
+                pos_diff = evaluator.avg_position_diff(test_df_t, 'idx_user', 'idx_item', 'pred', 'relevance_estimate')
+
+                print(f"Kendall Tau: {kendall_score:.4f}")
+                print(f"Spearman Rho: {spearman_score:.4f}")
+                print(f"Average Rank Position Difference: {pos_diff:.4f}")
+
                 _ = evaluator.get_sorted(test_df_t)
 
         cp10 = np.mean(cp10_tmp_list)
         cp100 = np.mean(cp100_tmp_list)
         cdcg = np.mean(cdcg_tmp_list)
+
+        ndcg_rel = np.mean(ndcg_tmp_list_rel)
+        ndcg_pred = np.mean(ndcg_tmp_list_pred)
+        ndcg_pop = np.mean(ndcg_tmp_list_pop)
+
+        recall_rel = np.mean(recall_tmp_list_rel)
+        recall_pred = np.mean(recall_tmp_list_pred)
+        recall_pop = np.mean(recall_tmp_list_pop)
+
+
+        precision_rel = np.mean(precision_tmp_list_rel)
+        precision_pred = np.mean(precision_tmp_list_pred)
+        precision_pop = np.mean(precision_tmp_list_pop)
+
         cp10list.append(cp10)
         cp100list.append(cp100)
         cdcglist.append(cdcg)
+
+        ndcglist_rel.append(ndcg_rel)
+        ndcglist_pred.append(ndcg_pred)
+        ndcglist_pop.append(ndcg_pop)
+
+        recalllist_rel.append(recall_rel)
+        recalllist_pred.append(recall_pred)
+        recalllist_pop.append(recall_pop)
+
+        precisionlist_rel.append(precision_rel)
+        precisionlist_pred.append(precision_pred)
+        precisionlist_pop.append(precision_pop)       
+
     
     with open(plotpath+"/result_" + flag.dataset +".txt", "a+") as f:
         print("CP10:", np.mean(cp10list), np.std(cp10list), file=f)
         print("CP100:", np.mean(cp100list), np.std(cp100list), file=f)
         print("CDCG:", np.mean(cdcglist), np.std(cdcglist), file=f)
 
+        print("NDCG10R:", np.mean(ndcglist_rel), np.std(ndcglist_rel), file=f)
+        print("NDCG10S:", np.mean(ndcglist_pred), np.std(ndcglist_pred), file=f)
+        print("NDCG10P:", np.mean(ndcglist_pop), np.std(ndcglist_pop), file=f)
+
+        print("Recall10R:", np.mean(recalllist_rel), np.std(recalllist_rel), file=f)
+        print("Recall10S:", np.mean(recalllist_pred), np.std(recalllist_pred), file=f)
+        print("Recall10P:", np.mean(recalllist_pop), np.std(recalllist_pop), file=f)
+
+        print("Precision10R:", np.mean(precisionlist_rel), np.std(precisionlist_rel), file=f)
+        print("Precision10S:", np.mean(precisionlist_pred), np.std(precisionlist_pred), file=f)
+        print("Precision10P:", np.mean(precisionlist_pop), np.std(precisionlist_pop), file=f)    
 
             
 if __name__ == "__main__":
