@@ -4,6 +4,7 @@ from train import plotpath, Causal_Model
 from baselines import DLMF
 import numpy as np
 import tensorflow as tf
+import pandas as pd
 from evaluator import Evaluator
 import pickle
 import os
@@ -31,7 +32,7 @@ parser.add_argument("--dataset", default='d', type=str,
                     help="the dataset used")
 parser.add_argument("--batch_size", default=5096, type=int,
                     help="the batch size")
-parser.add_argument("--repeat", default=1, type=int,
+parser.add_argument("--repeat", default=3, type=int,
                     help="how many time to run the model")
 parser.add_argument("--add", default='default', type=str,
                     help="additional information")
@@ -172,22 +173,28 @@ def main(flag=flag):
                 r_pred_test = r_pred_test * 0.8
                 test_df_t["propensity_estimate"] = np.clip(p_pred_test, 0.0001, 0.9999)
                 test_df_t["relevance_estimate"] = np.clip(r_pred_test, 0.0001, 0.9999)
+                outcome_estimate = test_df_t["propensity_estimate"] * test_df_t["relevance_estimate"]
+                outcome_estimate = 0.25 * ((outcome_estimate - np.mean(outcome_estimate))/ (np.std(outcome_estimate)))
+                outcome_estimate = np.clip((outcome_estimate + 0.5), 0.0, 1.0)
+                test_df_t["outcome_estimate"] = np.where(outcome_estimate >= 0.7, 1.0, 0.0)
                 test_df_t["treated_estimate"] = t_test_pred
                 causal_effect_estimate = \
-                    test_df_t["outcome"] * \
+                    test_df_t["outcome_estimate"] * \
                     (test_df_t["treated_estimate"] / test_df_t["propensity_estimate"] - \
                     (1 - test_df_t["treated_estimate"]) / (1 - test_df_t["propensity_estimate"]))
                 test_df_t["causal_effect_estimate"] = np.clip(causal_effect_estimate, -1, 1)
-                popularity = test_df_t.groupby("idx_item")["idx_user"].nunique().reset_index()
-                popularity.columns = ["idx_item", 'popularity']
-                test_df_t = test_df_t.merge(popularity, on="idx_item", how='left')
+                full_df = pd.concat([train_df, test_df], ignore_index=True) 
+                popularity = full_df[full_df.outcome>0].groupby("idx_item")["idx_user"].nunique().reset_index() 
+                popularity.columns = ["idx_item", "popularity"] 
+                popularity["popularity"] = popularity["popularity"].rank(method="dense", ascending=False).astype(int) 
+                test_df_t = test_df_t.merge(popularity, on="idx_item", how="left")
                 test_df_t["pred"] = recommender.predict(test_df_t)
                 evaluator = Evaluator()
+
                 cp10_tmp_list.append(evaluator.evaluate(test_df_t, 'CPrec', 10))
                 cp100_tmp_list.append(evaluator.evaluate(test_df_t, 'CPrec', 100))
                 cdcg_tmp_list.append(evaluator.evaluate(test_df_t, 'CDCG', 100000))
 
-                
                 ndcg_tmp_list_rel.append(evaluator.evaluate(test_df_t, 'NDCGR', 10))
                 ndcg_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'NDCGS', 10))
                 ndcg_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'NDCGP', 10))
@@ -197,8 +204,8 @@ def main(flag=flag):
                 recall_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'RecallP', 10))
 
                 precision_tmp_list_rel.append(evaluator.evaluate(test_df_t, 'PrecisionR', 10))
-                precision_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'PrecisionR', 10))
-                precision_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'PrecisionR', 10))
+                precision_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'PrecisionS', 10))
+                precision_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'PrecisionP', 10))
 
                 kendall_score = evaluator.kendall_tau_per_user(test_df_t, 'idx_user', 'pred', 'relevance_estimate')
                 spearman_score = evaluator.spearman_per_user(test_df_t, 'idx_user', 'pred', 'relevance_estimate')
@@ -237,17 +244,24 @@ def main(flag=flag):
                 r_pred_test = r_pred_test * 0.2
                 test_df_t["propensity_estimate"] = np.clip(p_pred_test, 0.0001, 0.9999)
                 test_df_t["relevance_estimate"] = np.clip(r_pred_test, 0.0001, 0.9999)
+                outcome_estimate = test_df_t["propensity_estimate"] * test_df_t["relevance_estimate"]
+                outcome_estimate = 0.25 * ((outcome_estimate - np.mean(outcome_estimate))/ (np.std(outcome_estimate)))
+                outcome_estimate = np.clip((outcome_estimate + 0.5), 0.0, 1.0)
+                test_df_t["outcome_estimate"] = np.where(outcome_estimate >= 0.65, 1.0, 0.0)
                 test_df_t["treated_estimate"] = t_test_pred
                 causal_effect_estimate = \
-                    test_df_t["outcome"] * \
+                    test_df_t["outcome_estimate"] * \
                     (test_df_t["treated_estimate"] / test_df_t["propensity_estimate"] - \
                     (1 - test_df_t["treated_estimate"]) / (1 - test_df_t["propensity_estimate"]))
                 test_df_t["causal_effect_estimate"] = np.clip(causal_effect_estimate, -1, 1)
-                popularity = test_df_t.groupby("idx_item")["idx_user"].nunique().reset_index()
-                popularity.columns = ["idx_item", 'popularity']
-                test_df_t = test_df_t.merge(popularity, on="idx_item", how='left')
+                full_df = pd.concat([train_df, test_df], ignore_index=True) 
+                popularity = full_df[full_df.outcome>0].groupby("idx_item")["idx_user"].nunique().reset_index() 
+                popularity.columns = ["idx_item", "popularity"] 
+                popularity["popularity"] = popularity["popularity"].rank(method="dense", ascending=False).astype(int) 
+                test_df_t = test_df_t.merge(popularity, on="idx_item", how="left")
                 test_df_t["pred"] = recommender.predict(test_df_t)
                 evaluator = Evaluator()
+
                 cp10_tmp_list.append(evaluator.evaluate(test_df_t, 'CPrec', 10))
                 cp100_tmp_list.append(evaluator.evaluate(test_df_t, 'CPrec', 100))
                 cdcg_tmp_list.append(evaluator.evaluate(test_df_t, 'CDCG', 100000))
@@ -286,7 +300,6 @@ def main(flag=flag):
         recall_pred = np.mean(recall_tmp_list_pred)
         recall_pop = np.mean(recall_tmp_list_pop)
 
-
         precision_rel = np.mean(precision_tmp_list_rel)
         precision_pred = np.mean(precision_tmp_list_pred)
         precision_pop = np.mean(precision_tmp_list_pop)
@@ -324,8 +337,7 @@ def main(flag=flag):
         print("Precision10R:", np.mean(precisionlist_rel), np.std(precisionlist_rel), file=f)
         print("Precision10S:", np.mean(precisionlist_pred), np.std(precisionlist_pred), file=f)
         print("Precision10P:", np.mean(precisionlist_pop), np.std(precisionlist_pop), file=f)    
-
-            
+     
 if __name__ == "__main__":
     physical_devices = tf.config.list_physical_devices('GPU')
     try:

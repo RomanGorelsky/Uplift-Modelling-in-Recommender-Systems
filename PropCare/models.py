@@ -1,6 +1,7 @@
 from abc import ABC
 import tensorflow as tf
 import sys
+import numpy as np
 from tensorflow import keras
 from tensorflow.keras.losses import MSE, binary_crossentropy
 from tensorflow.keras.models import Model
@@ -87,102 +88,6 @@ class Causal_Model(Model, ABC):
         self.kl = tf.keras.losses.KLDivergence()
         self.target_dist = tfp.distributions.Beta(0.2, 1.0)
         self.estimator_optimizer = keras.optimizers.SGD(keras.optimizers.schedules.CosineDecayRestarts(initial_learning_rate=0.01, first_decay_steps=2000))
-    
-    def get_config(self):
-        """Safe serialization with proper numpy array handling"""
-        config = super().get_config()
-        
-        # Required attributes
-        config.update({
-            'num_users': int(self.num_users),
-            'num_items': int(self.num_items),
-            'flags': {
-                'estimator_layer_units': list(self.flags.estimator_layer_units),
-                'click_layer_units': list(self.flags.click_layer_units),
-                'embedding_layer_units': list(self.flags.embedding_layer_units),
-                'lambda_1': float(self.flags.lambda_1),
-                'dimension': int(self.flags.dimension),
-                'p_weight': float(self.flags.p_weight)
-            },
-            'model_version': '1.3'
-        })
-
-        # Handle numpy arrays safely
-        def serialize_array(arr):
-            if arr is None:
-                return None
-            if isinstance(arr, (np.ndarray, tf.Tensor)):
-                return {'__numpy__': True, 'value': arr.tolist(), 'dtype': str(arr.dtype)}
-            return arr
-
-        # Optional attributes
-        config.update({
-            'user_embs': serialize_array(self.mf_user_embedding.weights[0] if self.mf_user_embedding.weights else None),
-            'item_embs': serialize_array(self.mf_item_embedding.weights[0] if self.mf_item_embedding.weights else None),
-            'item_popularity': serialize_array(self.item_popularity.numpy() if hasattr(self, 'item_popularity') else None)
-        })
-
-        return config
-
-    @classmethod
-    def from_config(cls, config):
-        """Safe deserialization with proper tensor reconstruction"""
-        # Validate config version
-        version = config.get('model_version', '1.0')
-        if version not in ['1.0', '1.1', '1.2', '1.3']:
-            raise ValueError(f"Unsupported model version: {version}")
-
-        # Convert serialized arrays back to tensors
-        def deserialize_array(data):
-            if data is None:
-                return None
-            if isinstance(data, dict) and '__numpy__' in data:
-                return tf.constant(data['value'], dtype=data['dtype'])
-            if isinstance(data, list):
-                return tf.constant(data)
-            return data
-
-        # Process required parameters
-        try:
-            num_users = int(config['num_users'])
-            num_items = int(config['num_items'])
-            
-            # Reconstruct flags
-            flags_config = config['flags']
-            class Flags:
-                def __init__(self, config):
-                    self.estimator_layer_units = list(config['estimator_layer_units'])
-                    self.click_layer_units = list(config['click_layer_units'])
-                    self.embedding_layer_units = list(config['embedding_layer_units'])
-                    self.lambda_1 = float(config['lambda_1'])
-                    self.dimension = int(config['dimension'])
-                    self.p_weight = float(config['p_weight'])
-            
-            flags = Flags(flags_config)
-
-            # Process tensors with proper error handling
-            item_popularity = deserialize_array(config.get('item_popularity'))
-            if item_popularity is None:
-                item_popularity = tf.zeros((num_items,), dtype=tf.float32)
-            elif len(item_popularity.shape) == 0:
-                item_popularity = tf.zeros((num_items,), dtype=tf.float32)
-
-            user_embs = deserialize_array(config.get('user_embs'))
-            item_embs = deserialize_array(config.get('item_embs'))
-
-            return cls(
-                num_users=num_users,
-                num_items=num_items,
-                flags=flags,
-                user_embs=user_embs,
-                item_embs=item_embs,
-                item_popularity=item_popularity
-            )
-            
-        except KeyError as e:
-            raise ValueError(f"Missing required config key: {str(e)}") from e
-        except (TypeError, ValueError) as e:
-            raise ValueError(f"Invalid config value: {str(e)}") from e
 
     @tf.function()
     def call(self, inputs, training=None, **kwargs):

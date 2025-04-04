@@ -584,7 +584,6 @@ class DLMF(Recommender):
             with open("dlmf_weights.pkl", "rb") as f:
                 saved_state = pickle.load(f)
                 self.__dict__.update(saved_state)
-                print("DLMF weights loaded successfully.")
         except FileNotFoundError:
             print("No saved weights found. Initializing randomly.")
 

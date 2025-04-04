@@ -3,3 +3,9 @@
 PropCare/df_sorted.csv
 PropCare/df_ranking_100.csv
 PropCare/df_ranking_10.csv
+.DS_Store
+PropCare/.DS_Store
+PropCare/CausalNBR/.DS_Store
+PropCare/CausalNBR/data/.DS_Store
+PropCare/CausalNBR/data/synthetic/.DS_Store
+PropCare/results/.DS_Store

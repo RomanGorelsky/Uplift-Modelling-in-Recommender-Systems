@@ -10,7 +10,6 @@ class Evaluator():
                  colname_effect='causal_effect', colname_estimate='causal_effect_estimate',
                  colname_relavance = 'relevance_estimate', colname_popularity = 'popularity'):
 
-
         self.rank_k = None
         self.colname_user = colname_user
         self.colname_item = colname_item
@@ -64,9 +63,7 @@ class Evaluator():
         for _, group in df.groupby(user_col):
             if len(group) > 1:
                 order_1 = group[rank_col_1].rank(ascending=False, method='first')
-                print(order_1)
                 order_2 = group[rank_col_2].rank(ascending=False, method='first')
-                print(order_2)
                 tau, _ = kendalltau(order_1, order_2)
                 taus.append(tau)
         return np.nanmean(taus)
@@ -154,6 +151,11 @@ class Evaluator():
                 lambda x: self.recall_at_k(x, sort_by=self.colname_relavance)
             )
             return float(np.nanmean(recall_scores))
+        elif measure == 'RecallS':
+            recall_scores = df.groupby(self.colname_user).apply(
+                lambda x: self.recall_at_k(x, sort_by=self.colname_prediction)
+            )
+            return float(np.nanmean(recall_scores))
         elif measure == 'RecallP':
             recall_scores = df.groupby(self.colname_user).apply(
                 lambda x: self.recall_at_k(x, sort_by=self.colname_popularity)
@@ -168,7 +170,7 @@ class Evaluator():
             precision_scores = df.groupby(self.colname_user).apply(
                 lambda x: self.precision_at_k(x, sort_by=self.colname_relavance)
             )
-            return float(np.nanmean(precision_scores))
+            return float(np.nanmean(precision_scores)) 
         elif measure == 'PrecisionP':
             precision_scores = df.groupby(self.colname_user).apply(
                 lambda x: self.precision_at_k(x, sort_by=self.colname_popularity)
