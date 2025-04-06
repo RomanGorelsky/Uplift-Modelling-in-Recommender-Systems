@@ -40,7 +40,18 @@ parser.add_argument("--p_weight", default=0.4, type=float,
                     help="weight for p_loss")
 parser.add_argument("--saved_DLMF", default='n', type=str,
                     help="use saved weights of DLMF")
+parser.add_argument("--to_prob", default=True, type=bool,
+                    help="normalize as probability")
 flag = parser.parse_args()
+
+
+# Функция нормализации: (с параметром to_prob=True - как у авторов гита, с to_prob=False - как в статье)
+def get_norm(vec, to_prob=True, mu=0.5, sigma=0.25):
+    vec_norm = (vec - np.mean(vec))/(np.std(vec))
+    if to_prob:
+        vec_norm = sigma * vec_norm
+        vec_norm = np.clip((vec_norm + mu), 0.0, 1.0)
+    return vec_norm
 
 
 def main(flag=flag):
@@ -59,6 +70,7 @@ def main(flag=flag):
     precisionlist_rel = []
     precisionlist_pred = []
     precisionlist_pop = []
+
 
     random_seed = int(233)
     for epoch in range(flag.repeat):
@@ -85,19 +97,28 @@ def main(flag=flag):
                 p_pred = tf.concat((p_pred, p_batch), axis=0)
 
         p_pred = p_pred.numpy()
-        p_pred_t = 0.25 * ((p_pred - np.mean(p_pred))/ (np.std(p_pred)))
-        p_pred_t = np.clip((p_pred_t + 0.5), 0.0, 1.0)
+        # p_pred_t = 0.25 * ((p_pred - np.mean(p_pred))/ (np.std(p_pred)))  
+        # p_pred_t = np.clip((p_pred_t + 0.5), 0.0, 1.0)  
+        p_pred_t = get_norm(p_pred, to_prob=flag.to_prob)
 
-        if flag.dataset == "d" or "p":
+        if flag.dataset == "d" or "p" and flag.to_prob:
             flag.thres = 0.70
-        elif flag.dataset == "ml":
+        elif flag.dataset == "ml" and flag.to_prob:
             flag.thres = 0.65
+        elif flag.dataset == "d" or "p" and not flag.to_prob:
+            flag.thres = 0.2
+        elif flag.dataset == "ml" and not flag.to_prob:
+            flag.thres = 0.15
+
+        # Параметр c
+        if flag.dataset == "d" or "p":
+            flag.c = 0.8
+        elif flag.dataset == "ml":
+            flag.c = 0.2
+
 
         t_pred = np.where(p_pred_t >= flag.thres, 1.0, 0.0)
-        if flag.dataset == "d" or "p":
-            p_pred = p_pred * 0.8
-        if flag.dataset == "ml":
-            p_pred = p_pred * 0.2
+        p_pred = p_pred * flag.c
 
         train_df["propensity"] = np.clip(p_pred, 0.0001, 0.9999)
         train_df["treated"] = t_pred
@@ -165,18 +186,20 @@ def main(flag=flag):
 
                 p_pred_test = p_pred_test.numpy()
                 r_pred_test = r_pred_test.numpy()
-                p_pred_test_t = 0.25 * ((p_pred_test - np.mean(p_pred_test))/ (np.std(p_pred_test)))
-                p_pred_test_t = np.clip((p_pred_test_t + 0.5), 0.0, 1.0)
+                # p_pred_test_t = 0.25 * ((p_pred_test - np.mean(p_pred_test))/ (np.std(p_pred_test)))
+                # p_pred_test_t = np.clip((p_pred_test_t + 0.5), 0.0, 1.0)
+                p_pred_test_t = get_norm(p_pred_test, to_prob=flag.to_prob)
 
-                t_test_pred = np.where(p_pred_test_t >= 0.7, 1.0, 0.0)
-                p_pred_test = p_pred_test * 0.8
-                r_pred_test = r_pred_test * 0.8
+                t_test_pred = np.where(p_pred_test_t >= flag.thres, 1.0, 0.0)
+                p_pred_test = p_pred_test * flag.c
+                r_pred_test = r_pred_test * flag.c
                 test_df_t["propensity_estimate"] = np.clip(p_pred_test, 0.0001, 0.9999)
                 test_df_t["relevance_estimate"] = np.clip(r_pred_test, 0.0001, 0.9999)
                 outcome_estimate = test_df_t["propensity_estimate"] * test_df_t["relevance_estimate"]
-                outcome_estimate = 0.25 * ((outcome_estimate - np.mean(outcome_estimate))/ (np.std(outcome_estimate)))
-                outcome_estimate = np.clip((outcome_estimate + 0.5), 0.0, 1.0)
-                test_df_t["outcome_estimate"] = np.where(outcome_estimate >= 0.7, 1.0, 0.0)
+                # outcome_estimate = 0.25 * ((outcome_estimate - np.mean(outcome_estimate))/ (np.std(outcome_estimate)))
+                # outcome_estimate = np.clip((outcome_estimate + 0.5), 0.0, 1.0)
+                outcome_estimate = get_norm(outcome_estimate, to_prob=flag.to_prob)
+                test_df_t["outcome_estimate"] = np.where(outcome_estimate >= flag.thres, 1.0, 0.0)
                 test_df_t["treated_estimate"] = t_test_pred
                 causal_effect_estimate = \
                     test_df_t["outcome_estimate"] * \
@@ -236,18 +259,19 @@ def main(flag=flag):
 
                 p_pred_test = p_pred_test.numpy()
                 r_pred_test = r_pred_test.numpy()
-                p_pred_test_t = 0.25 * ((p_pred_test - np.mean(p_pred_test))/ (np.std(p_pred_test)))
-                p_pred_test_t = np.clip((p_pred_test_t + 0.5), 0.0, 1.0)
-
-                t_test_pred = np.where(p_pred_test_t >= 0.65, 1.0, 0.0)
-                p_pred_test = p_pred_test * 0.2
-                r_pred_test = r_pred_test * 0.2
+                # p_pred_test_t = 0.25 * ((p_pred_test - np.mean(p_pred_test))/ (np.std(p_pred_test)))
+                # p_pred_test_t = np.clip((p_pred_test_t + 0.5), 0.0, 1.0)
+                p_pred_test_t = get_norm(p_pred_test, to_prob=flag.to_prob)
+                t_test_pred = np.where(p_pred_test_t >= flag.thres, 1.0, 0.0)
+                p_pred_test = p_pred_test * flag.c
+                r_pred_test = r_pred_test * flag.c
                 test_df_t["propensity_estimate"] = np.clip(p_pred_test, 0.0001, 0.9999)
                 test_df_t["relevance_estimate"] = np.clip(r_pred_test, 0.0001, 0.9999)
                 outcome_estimate = test_df_t["propensity_estimate"] * test_df_t["relevance_estimate"]
-                outcome_estimate = 0.25 * ((outcome_estimate - np.mean(outcome_estimate))/ (np.std(outcome_estimate)))
-                outcome_estimate = np.clip((outcome_estimate + 0.5), 0.0, 1.0)
-                test_df_t["outcome_estimate"] = np.where(outcome_estimate >= 0.65, 1.0, 0.0)
+                # outcome_estimate = 0.25 * ((outcome_estimate - np.mean(outcome_estimate))/ (np.std(outcome_estimate)))
+                # outcome_estimate = np.clip((outcome_estimate + 0.5), 0.0, 1.0)
+                outcome_estimate = get_norm(outcome_estimate, to_prob=flag.to_prob)
+                test_df_t["outcome_estimate"] = np.where(outcome_estimate >= flag.thres, 1.0, 0.0)
                 test_df_t["treated_estimate"] = t_test_pred
                 causal_effect_estimate = \
                     test_df_t["outcome_estimate"] * \
