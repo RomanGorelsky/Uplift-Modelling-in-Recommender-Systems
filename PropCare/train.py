@@ -4,6 +4,7 @@ import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
 from models import Causal_Model
+from CJBPR import CJBPR
 from scipy.stats import kendalltau
 from evaluator import Evaluator
 from sklearn.metrics import mean_absolute_error
