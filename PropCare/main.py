@@ -1,12 +1,14 @@
 import argparse
 from train import prepare_data, train_propensity
 from train import plotpath, Causal_Model
-from baselines import DLMF
+from baselines import DLMF, PopularBase, MF, CausalNeighborBase
 import numpy as np
+from CJBPR import CJBPR
 import tensorflow as tf
 from evaluator import Evaluator
 import pickle
 import os
+import pandas as pd
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1' 
 parser = argparse.ArgumentParser(description='Process some integers.')
@@ -23,10 +25,14 @@ parser.add_argument("--click_layer_units",
                     default=[64, 32, 16, 8],
                     type=list,
                     help="number of nodes each layer for MLP layers in Click estimators")
-parser.add_argument("--epoch", default=50, type=int,
+parser.add_argument("--epoch", default=25, type=int,
                     help="Number of epochs in the training")
 parser.add_argument("--lambda_1", default=10.0, type=float,
                     help="weight for popularity loss.")
+parser.add_argument("--lambda_2", default=0.1, type=float,
+                    help="weight for relavance loss.")
+parser.add_argument("--lambda_3", default=0.1, type=float,
+                    help="weight for propensity2 loss.")
 parser.add_argument("--dataset", default='d', type=str,
                     help="the dataset used")
 parser.add_argument("--batch_size", default=5096, type=int,
@@ -39,6 +45,8 @@ parser.add_argument("--p_weight", default=0.4, type=float,
                     help="weight for p_loss")
 parser.add_argument("--saved_DLMF", default='n', type=str,
                     help="use saved weights of DLMF")
+parser.add_argument("--to_prob", default=True, type=bool,
+                    help="normalize as probability")
 flag = parser.parse_args()
 
 
@@ -178,9 +186,10 @@ def main(flag=flag):
                     (test_df_t["treated_estimate"] / test_df_t["propensity_estimate"] - \
                     (1 - test_df_t["treated_estimate"]) / (1 - test_df_t["propensity_estimate"]))
                 test_df_t["causal_effect_estimate"] = np.clip(causal_effect_estimate, -1, 1)
-                popularity = test_df_t.groupby("idx_item")["idx_user"].nunique().reset_index()
-                popularity.columns = ["idx_item", 'popularity']
-                test_df_t = test_df_t.merge(popularity, on="idx_item", how='left')
+                train_df = train_df[train_df.outcome>0]
+                popularity = train_df["idx_item"].value_counts().reset_index()
+                popularity.columns = ["idx_item", "popularity"]
+                test_df_t = test_df_t.merge(popularity, on="idx_item", how="left")
                 test_df_t["pred"] = recommender.predict(test_df_t)
                 evaluator = Evaluator()
                 cp10_tmp_list.append(evaluator.evaluate(test_df_t, 'CPrec', 10))
@@ -243,9 +252,11 @@ def main(flag=flag):
                     (test_df_t["treated_estimate"] / test_df_t["propensity_estimate"] - \
                     (1 - test_df_t["treated_estimate"]) / (1 - test_df_t["propensity_estimate"]))
                 test_df_t["causal_effect_estimate"] = np.clip(causal_effect_estimate, -1, 1)
-                popularity = test_df_t.groupby("idx_item")["idx_user"].nunique().reset_index()
-                popularity.columns = ["idx_item", 'popularity']
-                test_df_t = test_df_t.merge(popularity, on="idx_item", how='left')
+
+                train_df = train_df[train_df.outcome>0]
+                popularity = train_df["idx_item"].value_counts().reset_index()
+                popularity.columns = ["idx_item", "popularity"]
+                test_df_t = test_df_t.merge(popularity, on="idx_item", how="left")
                 test_df_t["pred"] = recommender.predict(test_df_t)
                 evaluator = Evaluator()
                 cp10_tmp_list.append(evaluator.evaluate(test_df_t, 'CPrec', 10))
