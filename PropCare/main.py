@@ -49,6 +49,13 @@ parser.add_argument("--to_prob", default=True, type=bool,
                     help="normalize as probability")
 flag = parser.parse_args()
 
+# Функция нормализации: (с параметром to_prob=True - как у авторов гита, с to_prob=False - как в статье)
+def get_norm(vec, to_prob=True, mu=0.5, sigma=0.25):
+    vec_norm = (vec - np.mean(vec))/(np.std(vec))
+    if to_prob:
+        vec_norm = sigma * vec_norm
+        vec_norm = np.clip((vec_norm + mu), 0.0, 1.0)
+    return vec_norm
 
 def main(flag=flag):
     cp10list = []
@@ -74,7 +81,10 @@ def main(flag=flag):
         tf.random.set_seed(
             random_seed
         )
+        # model = CJBPR(num_users, num_items, flag)
+        # model.train(train_df)
         model = train_propensity(train_df, vali_df, test_df, flag, num_users, num_items, num_times, popular)
+        
         train_user = tf.convert_to_tensor(train_df["idx_user"].to_numpy(), dtype=tf.int32)
         train_item = tf.convert_to_tensor(train_df["idx_item"].to_numpy(), dtype=tf.int64)
         train_data = tf.data.Dataset.from_tensor_slices((train_user, train_item))
@@ -118,7 +128,7 @@ def main(flag=flag):
             lr = 0.001
             cap = 0.5
             rf = 0.001
-            itr = 1e6
+            itr = 100e6
         if flag.dataset == "ml":
             lr = 0.001
             cap = 0.3
@@ -135,6 +145,10 @@ def main(flag=flag):
         print("DLMF weights loaded successfully!")
 
         # recommender = DLMF(num_users, num_items, capping_T=cap, capping_C=cap, learn_rate=lr, reg_factor=rf)
+        # recommender.train(train_df, iter=itr)
+
+        
+        # recommender = CausalNeighborBase(num_users, num_items)
         # recommender.train(train_df, iter=itr)
         cp10_tmp_list = []
         cp100_tmp_list = []
@@ -180,9 +194,13 @@ def main(flag=flag):
                 r_pred_test = r_pred_test * 0.8
                 test_df_t["propensity_estimate"] = np.clip(p_pred_test, 0.0001, 0.9999)
                 test_df_t["relevance_estimate"] = np.clip(r_pred_test, 0.0001, 0.9999)
+                outcome_estimate = test_df_t["propensity_estimate"] * test_df_t["relevance_estimate"]
+                outcome_estimate = 0.25 * ((outcome_estimate - np.mean(outcome_estimate))/ (np.std(outcome_estimate)))
+                outcome_estimate = np.clip((outcome_estimate + 0.5), 0.0, 1.0)
+                test_df_t["outcome_estimate"] = np.where(outcome_estimate >= 0.7, 1.0, 0.0)
                 test_df_t["treated_estimate"] = t_test_pred
                 causal_effect_estimate = \
-                    test_df_t["outcome"] * \
+                    test_df_t["outcome_estimate"] * \
                     (test_df_t["treated_estimate"] / test_df_t["propensity_estimate"] - \
                     (1 - test_df_t["treated_estimate"]) / (1 - test_df_t["propensity_estimate"]))
                 test_df_t["causal_effect_estimate"] = np.clip(causal_effect_estimate, -1, 1)
@@ -247,8 +265,14 @@ def main(flag=flag):
                 test_df_t["propensity_estimate"] = np.clip(p_pred_test, 0.0001, 0.9999)
                 test_df_t["relevance_estimate"] = np.clip(r_pred_test, 0.0001, 0.9999)
                 test_df_t["treated_estimate"] = t_test_pred
+                
+                outcome_estimate = test_df_t["propensity_estimate"] * test_df_t["relevance_estimate"]
+                outcome_estimate = 0.25 * ((outcome_estimate - np.mean(outcome_estimate))/ (np.std(outcome_estimate)))
+                outcome_estimate = np.clip((outcome_estimate + 0.5), 0.0, 1.0)
+                test_df_t["outcome_estimate"] = np.where(outcome_estimate >= 0.7, 1.0, 0.0)
+
                 causal_effect_estimate = \
-                    test_df_t["outcome"] * \
+                    test_df_t["outcome_estimate"] * \
                     (test_df_t["treated_estimate"] / test_df_t["propensity_estimate"] - \
                     (1 - test_df_t["treated_estimate"]) / (1 - test_df_t["propensity_estimate"]))
                 test_df_t["causal_effect_estimate"] = np.clip(causal_effect_estimate, -1, 1)
