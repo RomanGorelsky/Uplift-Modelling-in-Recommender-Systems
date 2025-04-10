@@ -64,9 +64,7 @@ class Evaluator():
         for _, group in df.groupby(user_col):
             if len(group) > 1:
                 order_1 = group[rank_col_1].rank(ascending=False, method='first')
-                print(order_1)
                 order_2 = group[rank_col_2].rank(ascending=False, method='first')
-                print(order_2)
                 tau, _ = kendalltau(order_1, order_2)
                 taus.append(tau)
         return np.nanmean(taus)
@@ -149,6 +147,11 @@ class Evaluator():
             return float(np.nanmean(df.groupby(self.colname_user).agg({self.colname_effect: self.gaucp})))
         elif measure == 'CAUCN':
             return float(np.nanmean(df.groupby(self.colname_user).agg({self.colname_effect: self.gaucn})))
+        elif measure == 'RecallS':
+            recall_scores = df.groupby(self.colname_user).apply(
+                lambda x: self.recall_at_k(x, sort_by=self.colname_prediction)
+            )
+            return float(np.nanmean(recall_scores))
         elif measure == 'RecallR':
             recall_scores = df.groupby(self.colname_user).apply(
                 lambda x: self.recall_at_k(x, sort_by=self.colname_relavance)

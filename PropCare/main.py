@@ -3,9 +3,11 @@ from train import prepare_data, train_propensity
 from train import plotpath, Causal_Model
 from baselines import DLMF, PopularBase, MF, CausalNeighborBase
 import numpy as np
-from CJBPR import CJBPR
+# from CJBPR import CJBPR
 import tensorflow as tf
 from evaluator import Evaluator
+from scipy.stats import kendalltau
+from sklearn.metrics import f1_score
 import pickle
 import os
 import pandas as pd
@@ -75,13 +77,34 @@ def main(flag=flag):
             random_seed
         )
         model = train_propensity(train_df, vali_df, test_df, flag, num_users, num_items, num_times, popular)
+
         train_user = tf.convert_to_tensor(train_df["idx_user"].to_numpy(), dtype=tf.int32)
         train_item = tf.convert_to_tensor(train_df["idx_item"].to_numpy(), dtype=tf.int64)
         train_data = tf.data.Dataset.from_tensor_slices((train_user, train_item))
 
+        val_user = tf.convert_to_tensor(vali_df["idx_user"].to_numpy(), dtype=tf.int32)
+        val_item = tf.convert_to_tensor(vali_df["idx_item"].to_numpy(), dtype=tf.int64)
+        val_data = tf.data.Dataset.from_tensor_slices((val_user, val_item))
+
         test_user = tf.convert_to_tensor(test_df["idx_user"].to_numpy(), dtype=tf.int32)
         test_item = tf.convert_to_tensor(test_df["idx_item"].to_numpy(), dtype=tf.int64)
         test_data = tf.data.Dataset.from_tensor_slices((test_user, test_item))
+
+        opt_scale = 0.25
+        opt_add = 0.5
+        opt_epsilon = 0.7
+        opt_c = 0.8
+
+        # opt_scale = 0.4
+        # opt_add = 0.3
+        # opt_epsilon = 0.8
+        # opt_c = 0.1
+
+        # scales = np.linspace(0.25, 0.9, 10)
+        # adds = np.linspace(0.2, 0.7, 5)
+        # epsilons = np.linspace(0.1, 0.9, 9)
+        # cs = np.linspace(0.1, 0.9, 9)
+
         p_pred = None
 
         for u, i in train_data.batch(5000):
@@ -92,17 +115,57 @@ def main(flag=flag):
                 p_pred = tf.concat((p_pred, p_batch), axis=0)
 
         p_pred = p_pred.numpy()
-        p_pred_t = 0.25 * ((p_pred - np.mean(p_pred))/ (np.std(p_pred)))
-        p_pred_t = np.clip((p_pred_t + 0.5), 0.0, 1.0)
+        p_pred_true = np.squeeze(train_df["propensity"].to_numpy())
+
+        p_pred_t = opt_scale * ((p_pred - np.mean(p_pred))/ (np.std(p_pred)))
+        p_pred_t = np.clip((p_pred_t + opt_add), 0.0, 1.0)
+        
+        # t_pred_t = np.where(p_pred_t >= opt_epsilon, 1.0, 0.0)
+        # max_f = f1_score(train_df['treated'], t_pred_t)
+        # p_pred_t = p_pred_t * opt_c
+        # p_pred_t = np.clip(p_pred_t, 0.0001, 0.9999)
+        # p_pred_t = np.squeeze(p_pred_t)
+        # kd_max, _ = kendalltau(p_pred_t, p_pred_true)
+        # print('Initial Kendall Tau: ', kd_max)
+        # print('Initial F1 score', max_f)
+
+        # for scale in scales:
+        #     for add in adds:
+        #         for epsilon in epsilons:
+        #             for c in cs:
+        #                 p_pred_t = scale * ((p_pred - np.mean(p_pred))/ (np.std(p_pred)))
+        #                 p_pred_t = np.clip((p_pred_t + add), 0.0, 1.0)
+        #                 t_pred_t = np.where(p_pred_t >= epsilon, 1.0, 0.0)
+        #                 f_score = f1_score(train_df['treated'], t_pred_t)
+        #                 p_pred_t = p_pred_t * c
+        #                 p_pred_t = np.clip(p_pred_t, 0.0001, 0.9999)
+        #                 p_pred_t = np.squeeze(p_pred_t)
+        #                 kd, _ = kendalltau(p_pred_t, p_pred_true)
+        #                 if kd > kd_max and f_score > max_f:
+        #                     max_f = f_score
+        #                     kd_max = kd
+        #                     opt_scale = scale
+        #                     opt_add = add
+        #                     opt_epsilon = epsilon
+        #                     opt_c = c
+        
+        # print('Max Kendall Tau: ', kd_max)
+        # print('Max F1 score: ', max_f)
+        # print('Optimal scale: ', opt_scale)
+        # print('Optimal add: ', opt_add)
+        # print('Optimal epsilon: ', opt_epsilon)
+        # print('Optimal c: ', opt_c)
+
+        # break
 
         if flag.dataset == "d" or "p":
-            flag.thres = 0.70
+            flag.thres = opt_epsilon
         elif flag.dataset == "ml":
             flag.thres = 0.65
 
         t_pred = np.where(p_pred_t >= flag.thres, 1.0, 0.0)
         if flag.dataset == "d" or "p":
-            p_pred = p_pred * 0.8
+            p_pred = p_pred * opt_c
         if flag.dataset == "ml":
             p_pred = p_pred * 0.2
 
@@ -118,24 +181,23 @@ def main(flag=flag):
             lr = 0.001
             cap = 0.5
             rf = 0.001
-            itr = 1e6
+            itr = 100e6
         if flag.dataset == "ml":
             lr = 0.001
             cap = 0.3
             rf = 0.1
             itr = 100e6
 
-        with open("dlmf_weights.pkl", "rb") as f:
-            saved_state = pickle.load(f)
-
         recommender = DLMF(num_users, num_items, capping_T = cap, 
                            capping_C = cap, learn_rate = lr, reg_factor = rf)
 
-        recommender.__dict__.update(saved_state)
-        print("DLMF weights loaded successfully!")
+        # with open("dlmf_weights.pkl", "rb") as f:
+        #     saved_state = pickle.load(f)
+        # recommender.__dict__.update(saved_state)
+        # print("DLMF weights loaded successfully!")
 
-        # recommender = DLMF(num_users, num_items, capping_T=cap, capping_C=cap, learn_rate=lr, reg_factor=rf)
-        # recommender.train(train_df, iter=itr)
+        recommender.train(train_df, iter=itr)
+
         cp10_tmp_list = []
         cp100_tmp_list = []
         cdcg_tmp_list = []
@@ -172,17 +234,21 @@ def main(flag=flag):
 
                 p_pred_test = p_pred_test.numpy()
                 r_pred_test = r_pred_test.numpy()
-                p_pred_test_t = 0.25 * ((p_pred_test - np.mean(p_pred_test))/ (np.std(p_pred_test)))
-                p_pred_test_t = np.clip((p_pred_test_t + 0.5), 0.0, 1.0)
+                p_pred_test_t = opt_scale * ((p_pred_test - np.mean(p_pred_test))/ (np.std(p_pred_test)))
+                p_pred_test_t = np.clip((p_pred_test_t + opt_add), 0.0, 1.0)
 
-                t_test_pred = np.where(p_pred_test_t >= 0.7, 1.0, 0.0)
-                p_pred_test = p_pred_test * 0.8
-                r_pred_test = r_pred_test * 0.8
+                t_test_pred = np.where(p_pred_test_t >= flag.thres, 1.0, 0.0)
+                p_pred_test = p_pred_test * opt_c
+                r_pred_test = r_pred_test * opt_c
                 test_df_t["propensity_estimate"] = np.clip(p_pred_test, 0.0001, 0.9999)
                 test_df_t["relevance_estimate"] = np.clip(r_pred_test, 0.0001, 0.9999)
+                outcome_estimate = test_df_t["propensity_estimate"] * test_df_t["relevance_estimate"]
+                outcome_estimate = opt_scale * ((outcome_estimate - np.mean(outcome_estimate))/ (np.std(outcome_estimate)))
+                outcome_estimate = np.clip((outcome_estimate + opt_add), 0.0, 1.0)
+                test_df_t["outcome_estimate"] = np.where(outcome_estimate >= flag.thres, 1.0, 0.0)
                 test_df_t["treated_estimate"] = t_test_pred
                 causal_effect_estimate = \
-                    test_df_t["outcome"] * \
+                    test_df_t["outcome_estimate"] * \
                     (test_df_t["treated_estimate"] / test_df_t["propensity_estimate"] - \
                     (1 - test_df_t["treated_estimate"]) / (1 - test_df_t["propensity_estimate"]))
                 test_df_t["causal_effect_estimate"] = np.clip(causal_effect_estimate, -1, 1)
@@ -192,6 +258,7 @@ def main(flag=flag):
                 test_df_t = test_df_t.merge(popularity, on="idx_item", how="left")
                 test_df_t["pred"] = recommender.predict(test_df_t)
                 evaluator = Evaluator()
+
                 cp10_tmp_list.append(evaluator.evaluate(test_df_t, 'CPrec', 10))
                 cp100_tmp_list.append(evaluator.evaluate(test_df_t, 'CPrec', 100))
                 cdcg_tmp_list.append(evaluator.evaluate(test_df_t, 'CDCG', 100000))
@@ -206,8 +273,8 @@ def main(flag=flag):
                 recall_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'RecallP', 10))
 
                 precision_tmp_list_rel.append(evaluator.evaluate(test_df_t, 'PrecisionR', 10))
-                precision_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'PrecisionR', 10))
-                precision_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'PrecisionR', 10))
+                precision_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'PrecisionS', 10))
+                precision_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'PrecisionP', 10))
 
                 kendall_score = evaluator.kendall_tau_per_user(test_df_t, 'idx_user', 'pred', 'relevance_estimate')
                 spearman_score = evaluator.spearman_per_user(test_df_t, 'idx_user', 'pred', 'relevance_estimate')
@@ -238,17 +305,21 @@ def main(flag=flag):
 
                 p_pred_test = p_pred_test.numpy()
                 r_pred_test = r_pred_test.numpy()
-                p_pred_test_t = 0.25 * ((p_pred_test - np.mean(p_pred_test))/ (np.std(p_pred_test)))
-                p_pred_test_t = np.clip((p_pred_test_t + 0.5), 0.0, 1.0)
+                p_pred_test_t = opt_scale * ((p_pred_test - np.mean(p_pred_test))/ (np.std(p_pred_test)))
+                p_pred_test_t = np.clip((p_pred_test_t + opt_add), 0.0, 1.0)
 
-                t_test_pred = np.where(p_pred_test_t >= 0.65, 1.0, 0.0)
+                t_test_pred = np.where(p_pred_test_t >= flag.thres, 1.0, 0.0)
                 p_pred_test = p_pred_test * 0.2
                 r_pred_test = r_pred_test * 0.2
                 test_df_t["propensity_estimate"] = np.clip(p_pred_test, 0.0001, 0.9999)
                 test_df_t["relevance_estimate"] = np.clip(r_pred_test, 0.0001, 0.9999)
+                outcome_estimate = test_df_t["propensity_estimate"] * test_df_t["relevance_estimate"]
+                outcome_estimate = opt_scale * ((outcome_estimate - np.mean(outcome_estimate))/ (np.std(outcome_estimate)))
+                outcome_estimate = np.clip((outcome_estimate + opt_add), 0.0, 1.0)
+                test_df_t["outcome_estimate"] = np.where(outcome_estimate >= flag.thres, 1.0, 0.0)
                 test_df_t["treated_estimate"] = t_test_pred
                 causal_effect_estimate = \
-                    test_df_t["outcome"] * \
+                    test_df_t["outcome_estimate"] * \
                     (test_df_t["treated_estimate"] / test_df_t["propensity_estimate"] - \
                     (1 - test_df_t["treated_estimate"]) / (1 - test_df_t["propensity_estimate"]))
                 test_df_t["causal_effect_estimate"] = np.clip(causal_effect_estimate, -1, 1)
@@ -334,7 +405,8 @@ def main(flag=flag):
 
         print("Precision10R:", np.mean(precisionlist_rel), np.std(precisionlist_rel), file=f)
         print("Precision10S:", np.mean(precisionlist_pred), np.std(precisionlist_pred), file=f)
-        print("Precision10P:", np.mean(precisionlist_pop), np.std(precisionlist_pop), file=f)    
+        print("Precision10P:", np.mean(precisionlist_pop), np.std(precisionlist_pop), file=f) 
+        print("--------------------------------", file=f)    
 
             
 if __name__ == "__main__":
