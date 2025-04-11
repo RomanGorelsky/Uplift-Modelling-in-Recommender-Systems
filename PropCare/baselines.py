@@ -580,14 +580,6 @@ class DLMF(Recommender):
             self.item_biases = np.zeros(self.num_items)
             self.global_bias = 0.0
 
-        try:
-            with open("dlmf_weights.pkl", "rb") as f:
-                saved_state = pickle.load(f)
-                self.__dict__.update(saved_state)
-                print("DLMF weights loaded successfully.")
-        except FileNotFoundError:
-            print("No saved weights found. Initializing randomly.")
-
     def train(self, df, iter = 100):
         df_train = df.loc[df.loc[:, self.colname_outcome] > 0, :] # need only positive outcomes
         if self.only_treated: # train only with treated positive (DLTO)

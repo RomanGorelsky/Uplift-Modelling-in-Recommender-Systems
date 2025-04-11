@@ -4,7 +4,7 @@ import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
 from models import Causal_Model
-from CJBPR import CJBPR
+# from CJBPR import CJBPR
 from scipy.stats import kendalltau
 from evaluator import Evaluator
 from sklearn.metrics import mean_absolute_error
@@ -53,7 +53,9 @@ def prepare_data(flag):
         data_path = Path("./CausalNBR/data/preprocessed/dunn_cat_mailer_10_10_1_1/original_rp0.40")
     elif dataset == "p":
         print("dunn_cate (personalized) is used.")
-        data_path = Path("./CausalNBR/data/preprocessed/dunn_cat_mailer_10_10_1_1/rank_rp0.40_sf1.00_nr210")
+        # data_path = Path("./CausalNBR/data/preprocessed/dunn_cat_mailer_10_10_1_1/rank_rp0.40_sf1.00_nr210")
+        data_path = Path("/Users/tanyatomayly/Downloads/Uplift_Data/DunnHumby/dunn_cat_mailer_10_10_1_1/rank_rp0.40_sf1.00_nr210")
+
         # data = dh_personalized.copy()
         # data = pd.read_csv('dh_personalized.csv')
     elif dataset == "ml":
@@ -147,7 +149,7 @@ def train_propensity(train_df, vali_df, test_df, flag, num_users, num_items, num
         pearsonres, _ = pearsonr(p_pred, p_true)
         mse = mean_squared_error(y_pred=p_pred, y_true=p_true)
         val_obj = tau_res
-        if abs(val_obj) > optim_val_car:
+        if val_obj > optim_val_car:
             optim_val_car = val_obj
             if not os.path.isdir(plotpath+ '/' + flag.add):
                 os.makedirs(plotpath+ '/' + flag.add)

@@ -3,7 +3,7 @@ from train import prepare_data, train_propensity
 from train import plotpath, Causal_Model
 from baselines import DLMF, PopularBase, MF, CausalNeighborBase
 import numpy as np
-from CJBPR import CJBPR
+# from CJBPR import CJBPR
 import tensorflow as tf
 from evaluator import Evaluator
 import pickle
