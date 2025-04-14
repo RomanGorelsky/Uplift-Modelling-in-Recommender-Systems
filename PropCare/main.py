@@ -145,24 +145,19 @@ def main(flag=flag):
             lr = 0.001
             cap = 0.3
             rf = 0.1
-            itr = 100e6
-
-        with open("dlmf_weights.pkl", "rb") as f:
-            saved_state = pickle.load(f)
+            itr = 500e6
 
         recommender = DLMF(num_users, num_items, capping_T = cap, 
                            capping_C = cap, learn_rate = lr, reg_factor = rf)
-
-        recommender.__dict__.update(saved_state)
-        print("DLMF weights loaded successfully!")
-
-        # recommender = DLMF(num_users, num_items, capping_T=cap, capping_C=cap, learn_rate=lr, reg_factor=rf)
         # recommender.train(train_df, iter=itr)
 
+        with open("dlmf_weights.pkl", "rb") as f:
+            saved_state = pickle.load(f)
+        recommender.__dict__.update(saved_state)
+        print("DLMF weights loaded successfully!")
         
         # recommender = CausalNeighborBase(num_users, num_items)
         # recommender.train(train_df, iter=itr)
-
 
         cp10_tmp_list_pred = []
         cp100_tmp_list_pred = []

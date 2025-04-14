@@ -63,6 +63,7 @@ class Evaluator():
 
     def get_sorted(self, df, sort_by = 'pred'):
         df = df.sort_values(by=[self.colname_user, sort_by], ascending=False)
+        df.to_csv('df_ml_sorted.csv')
         return df
 
     def capping(self, df, cap_prop=None):

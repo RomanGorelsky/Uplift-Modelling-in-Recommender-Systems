@@ -112,7 +112,7 @@ def train_propensity(train_df, vali_df, test_df, flag, num_users, num_items, num
     sample_user = tf.constant([0]) 
     sample_item = tf.constant([0]) 
     _ = model((sample_user, sample_item))  # This builds all layers 
-    model.load_weights("/Users/tanyatomayly/Desktop/PropCare-main/results/default/.weights.h5")
+    # model.load_weights("/Users/tanyatomayly/Desktop/PropCare-main/results/default/.weights.h5")
     # optim_val_car = 0
     # # train_df = train_df[train_df["outcome"] > 0]
     # # for epoch in range(flag.epoch):
@@ -159,7 +159,7 @@ def train_propensity(train_df, vali_df, test_df, flag, num_users, num_items, num
     #         model.save_weights(plotpath + flag.add + "/.weights.h5")
     #         print("Model saved!")
     #         print(plotpath + flag.add + "/.weights.h5")
-    # model.load_weights(plotpath + flag.add + "/.weights.h5")
+    model.load_weights(plotpath + flag.add + "/.weights.h5")
     return model
     
 if __name__ == "__main__":
