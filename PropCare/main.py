@@ -3,7 +3,7 @@ from train import prepare_data, train_propensity
 from train import plotpath, Causal_Model
 from baselines import DLMF, PopularBase, MF, CausalNeighborBase
 import numpy as np
-# from CJBPR import CJBPR
+from CJBPR import CJBPR
 import tensorflow as tf
 from evaluator import Evaluator
 import pickle
@@ -58,10 +58,6 @@ def get_norm(vec, to_prob=True, mu=0.5, sigma=0.25):
     return vec_norm
 
 def main(flag=flag):
-    cp10list = []
-    cp100list = []
-    cdcglist = []
-
     ndcglist_rel = []
     ndcglist_pred = []
     ndcglist_pop = []
@@ -73,6 +69,18 @@ def main(flag=flag):
     precisionlist_rel = []
     precisionlist_pred = []
     precisionlist_pop = []
+    
+    cp10list_pred = []
+    cp100list_pred = []
+    cdcglist_pred = []
+
+    cp10list_rel = []
+    cp100list_rel = []
+    cdcglist_rel = []
+
+    cp10list_pop = []
+    cp100list_pop = []
+    cdcglist_pop = []
 
     random_seed = int(233)
     for epoch in range(flag.repeat):
@@ -83,6 +91,10 @@ def main(flag=flag):
         )
         # model = CJBPR(num_users, num_items, flag)
         # model.train(train_df)
+        # Initialize and train model
+        # model = CJBPR(train_df, vali_df, test_df)
+        # model.fit() 
+        # model.save('cjbpr_model')
         model = train_propensity(train_df, vali_df, test_df, flag, num_users, num_items, num_times, popular)
         
         train_user = tf.convert_to_tensor(train_df["idx_user"].to_numpy(), dtype=tf.int32)
@@ -150,9 +162,19 @@ def main(flag=flag):
         
         # recommender = CausalNeighborBase(num_users, num_items)
         # recommender.train(train_df, iter=itr)
-        cp10_tmp_list = []
-        cp100_tmp_list = []
-        cdcg_tmp_list = []
+
+
+        cp10_tmp_list_pred = []
+        cp100_tmp_list_pred = []
+        cdcg_tmp_list_pred = []
+
+        cp10_tmp_list_rel = []
+        cp100_tmp_list_rel = []
+        cdcg_tmp_list_rel = []
+
+        cp10_tmp_list_pop = []
+        cp100_tmp_list_pop = []
+        cdcg_tmp_list_pop = []
         
         ndcg_tmp_list_rel = []
         ndcg_tmp_list_pred = []
@@ -210,11 +232,7 @@ def main(flag=flag):
                 test_df_t = test_df_t.merge(popularity, on="idx_item", how="left")
                 test_df_t["pred"] = recommender.predict(test_df_t)
                 evaluator = Evaluator()
-                cp10_tmp_list.append(evaluator.evaluate(test_df_t, 'CPrec', 10))
-                cp100_tmp_list.append(evaluator.evaluate(test_df_t, 'CPrec', 100))
-                cdcg_tmp_list.append(evaluator.evaluate(test_df_t, 'CDCG', 100000))
 
-                
                 ndcg_tmp_list_rel.append(evaluator.evaluate(test_df_t, 'NDCGR', 10))
                 ndcg_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'NDCGS', 10))
                 ndcg_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'NDCGP', 10))
@@ -224,8 +242,20 @@ def main(flag=flag):
                 recall_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'RecallP', 10))
 
                 precision_tmp_list_rel.append(evaluator.evaluate(test_df_t, 'PrecisionR', 10))
-                precision_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'PrecisionR', 10))
-                precision_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'PrecisionR', 10))
+                precision_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'PrecisionS', 10))
+                precision_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'PrecisionP', 10))
+
+                cp10_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'CPrec', 10))
+                cp100_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'CPrec', 100))
+                cdcg_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'CDCG', 100000))
+
+                cp10_tmp_list_rel.append(evaluator.evaluate(test_df_t, 'CPrecR', 10))
+                cp100_tmp_list_rel.append(evaluator.evaluate(test_df_t, 'CPrecR', 100))
+                cdcg_tmp_list_rel.append(evaluator.evaluate(test_df_t, 'CDCGR', 100000))
+
+                cp10_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'CPrecP', 10))
+                cp100_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'CPrecP', 100))
+                cdcg_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'CDCGP', 100000))
 
                 kendall_score = evaluator.kendall_tau_per_user(test_df_t, 'idx_user', 'pred', 'relevance_estimate')
                 spearman_score = evaluator.spearman_per_user(test_df_t, 'idx_user', 'pred', 'relevance_estimate')
@@ -283,9 +313,6 @@ def main(flag=flag):
                 test_df_t = test_df_t.merge(popularity, on="idx_item", how="left")
                 test_df_t["pred"] = recommender.predict(test_df_t)
                 evaluator = Evaluator()
-                cp10_tmp_list.append(evaluator.evaluate(test_df_t, 'CPrec', 10))
-                cp100_tmp_list.append(evaluator.evaluate(test_df_t, 'CPrec', 100))
-                cdcg_tmp_list.append(evaluator.evaluate(test_df_t, 'CDCG', 100000))
 
                 ndcg_tmp_list_rel.append(evaluator.evaluate(test_df_t, 'NDCGR', 10))
                 ndcg_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'NDCGS', 10))
@@ -299,6 +326,18 @@ def main(flag=flag):
                 precision_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'PrecisionS', 10))
                 precision_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'PrecisionP', 10))
 
+                cp10_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'CPrec', 10))
+                cp100_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'CPrec', 100))
+                cdcg_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'CDCG', 100000))
+
+                cp10_tmp_list_rel.append(evaluator.evaluate(test_df_t, 'CPrecR', 10))
+                cp100_tmp_list_rel.append(evaluator.evaluate(test_df_t, 'CPrecR', 100))
+                cdcg_tmp_list_rel.append(evaluator.evaluate(test_df_t, 'CDCGR', 100000))
+
+                cp10_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'CPrecP', 10))
+                cp100_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'CPrecP', 100))
+                cdcg_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'CDCGP', 100000))
+
                 kendall_score = evaluator.kendall_tau_per_user(test_df_t, 'idx_user', 'pred', 'relevance_estimate')
                 spearman_score = evaluator.spearman_per_user(test_df_t, 'idx_user', 'pred', 'relevance_estimate')
                 pos_diff = evaluator.avg_position_diff(test_df_t, 'idx_user', 'idx_item', 'pred', 'relevance_estimate')
@@ -309,10 +348,6 @@ def main(flag=flag):
 
                 _ = evaluator.get_sorted(test_df_t)
 
-        cp10 = np.mean(cp10_tmp_list)
-        cp100 = np.mean(cp100_tmp_list)
-        cdcg = np.mean(cdcg_tmp_list)
-
         ndcg_rel = np.mean(ndcg_tmp_list_rel)
         ndcg_pred = np.mean(ndcg_tmp_list_pred)
         ndcg_pop = np.mean(ndcg_tmp_list_pop)
@@ -321,14 +356,33 @@ def main(flag=flag):
         recall_pred = np.mean(recall_tmp_list_pred)
         recall_pop = np.mean(recall_tmp_list_pop)
 
-
         precision_rel = np.mean(precision_tmp_list_rel)
         precision_pred = np.mean(precision_tmp_list_pred)
         precision_pop = np.mean(precision_tmp_list_pop)
 
-        cp10list.append(cp10)
-        cp100list.append(cp100)
-        cdcglist.append(cdcg)
+        cp10_pred = np.mean(cp10_tmp_list_pred)
+        cp100_pred = np.mean(cp100_tmp_list_pred)
+        cdcg_pred = np.mean(cdcg_tmp_list_pred)
+
+        cp10_rel = np.mean(cp10_tmp_list_rel)
+        cp100_rel = np.mean(cp100_tmp_list_rel)
+        cdcg_rel = np.mean(cdcg_tmp_list_rel)
+
+        cp10_pop = np.mean(cp10_tmp_list_pop)
+        cp100_pop = np.mean(cp100_tmp_list_pop)
+        cdcg_pop = np.mean(cdcg_tmp_list_pop)
+
+        cp10list_pred.append(cp10_pred)
+        cp100list_pred.append(cp100_pred)
+        cdcglist_pred.append(cdcg_pred)
+
+        cp10list_rel.append(cp10_rel)
+        cp100list_rel.append(cp100_rel)
+        cdcglist_rel.append(cdcg_rel)
+
+        cp10list_pop.append(cp10_pop)
+        cp100list_pop.append(cp100_pop)
+        cdcglist_pop.append(cdcg_pop)
 
         ndcglist_rel.append(ndcg_rel)
         ndcglist_pred.append(ndcg_pred)
@@ -340,14 +394,10 @@ def main(flag=flag):
 
         precisionlist_rel.append(precision_rel)
         precisionlist_pred.append(precision_pred)
-        precisionlist_pop.append(precision_pop)       
+        precisionlist_pop.append(precision_pop)  
 
     
     with open(plotpath+"/result_" + flag.dataset +".txt", "a+") as f:
-        print("CP10:", np.mean(cp10list), np.std(cp10list), file=f)
-        print("CP100:", np.mean(cp100list), np.std(cp100list), file=f)
-        print("CDCG:", np.mean(cdcglist), np.std(cdcglist), file=f)
-
         print("NDCG10R:", np.mean(ndcglist_rel), np.std(ndcglist_rel), file=f)
         print("NDCG10S:", np.mean(ndcglist_pred), np.std(ndcglist_pred), file=f)
         print("NDCG10P:", np.mean(ndcglist_pop), np.std(ndcglist_pop), file=f)
@@ -358,7 +408,19 @@ def main(flag=flag):
 
         print("Precision10R:", np.mean(precisionlist_rel), np.std(precisionlist_rel), file=f)
         print("Precision10S:", np.mean(precisionlist_pred), np.std(precisionlist_pred), file=f)
-        print("Precision10P:", np.mean(precisionlist_pop), np.std(precisionlist_pop), file=f)    
+        print("Precision10P:", np.mean(precisionlist_pop), np.std(precisionlist_pop), file=f)        
+
+        print("CP10S:", np.mean(cp10list_pred), np.std(cp10list_pred), file=f)
+        print("CP10R:", np.mean(cp10list_rel), np.std(cp10list_rel), file=f)
+        print("CP10P:", np.mean(cp10list_pop), np.std(cp10list_pop), file=f)
+
+        print("CP100S:", np.mean(cp100list_pred), np.std(cp100list_pred), file=f)
+        print("CP100R:", np.mean(cp100list_rel), np.std(cp100list_rel), file=f)
+        print("CP100P:", np.mean(cp100list_pop), np.std(cp100list_pop), file=f)
+        
+        print("CDCGS:", np.mean(cdcglist_pred), np.std(cdcglist_pred), file=f)
+        print("CDCGR:", np.mean(cdcglist_rel), np.std(cdcglist_rel), file=f)
+        print("CDCGP:", np.mean(cdcglist_pop), np.std(cdcglist_pop), file=f)
 
             
 if __name__ == "__main__":

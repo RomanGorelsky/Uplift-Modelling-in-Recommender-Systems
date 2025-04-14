@@ -109,54 +109,57 @@ def train_propensity(train_df, vali_df, test_df, flag, num_users, num_items, num
     from sklearn.metrics import mean_absolute_error, mean_squared_error
 
     model = Causal_Model(num_users, num_items, flag, None, None, popular)
-    
-    optim_val_car = 0
-    # train_df = train_df[train_df["outcome"] > 0]
-    # for epoch in range(flag.epoch):
-    for epoch in range(50):
-        print("Sampling negative items...", end=" ")
-        j_list = []
-        for i in train_df["idx_item"].to_numpy():
-            j = np.random.randint(0, num_items)
-            while j == i:
-                j = np.random.randint(0, num_items)
-            j_list.append(j)
-        print("Done")
-        j_list = np.reshape(np.array(j_list, dtype=train_df["idx_item"].to_numpy().dtype), train_df["idx_item"].to_numpy().shape)
-        train_data = tf.data.Dataset.from_tensor_slices((train_df["idx_user"].to_numpy(), train_df["idx_item"].to_numpy(), j_list, train_df["outcome"].to_numpy()))
-        with tqdm(total=len(train_df) // flag.batch_size + 1) as t:
-            t.set_description('Training Epoch %i' % epoch)
-            for user, item, item_j, value in train_data.shuffle(100).batch(flag.batch_size):
-                step = model.propensity_train((user, item, item_j, value))
-                t.update()
-        vali_data = tf.data.Dataset.from_tensor_slices((vali_df["idx_user"].to_numpy(), vali_df["idx_item"].to_numpy()))
-        gamma_pred = None
-        p_pred = None
-        for u, i in vali_data.batch(5000):
-            gamma_batch, p_batch, _, _ = model((u, i), training=False)
-            if gamma_pred is None:
-                gamma_pred = gamma_batch
-            else:
-                gamma_pred = tf.concat((gamma_pred, gamma_batch), axis=0)
-            if p_pred is None:
-                p_pred = p_batch
-            else:
-                p_pred = tf.concat((p_pred, p_batch), axis=0)
-        p_true = np.squeeze(vali_df["propensity"].to_numpy())
-        p_pred = np.squeeze(p_pred.numpy())
-        p_pred = (p_pred - np.min(p_pred)) / (np.max(p_pred) - np.min(p_pred))
-        tau_res, _ = kendalltau(p_pred, p_true)
-        pearsonres, _ = pearsonr(p_pred, p_true)
-        mse = mean_squared_error(y_pred=p_pred, y_true=p_true)
-        val_obj = tau_res
-        if val_obj > optim_val_car:
-            optim_val_car = val_obj
-            if not os.path.isdir(plotpath+ '/' + flag.add):
-                os.makedirs(plotpath+ '/' + flag.add)
-            model.save_weights(plotpath + flag.add + "/.weights.h5")
-            print("Model saved!")
-            print(plotpath + flag.add + "/.weights.h5")
-    model.load_weights(plotpath + flag.add + "/.weights.h5")
+    sample_user = tf.constant([0]) 
+    sample_item = tf.constant([0]) 
+    _ = model((sample_user, sample_item))  # This builds all layers 
+    model.load_weights("/Users/tanyatomayly/Desktop/PropCare-main/results/default/.weights.h5")
+    # optim_val_car = 0
+    # # train_df = train_df[train_df["outcome"] > 0]
+    # # for epoch in range(flag.epoch):
+    # for epoch in range(50):
+    #     print("Sampling negative items...", end=" ")
+    #     j_list = []
+    #     for i in train_df["idx_item"].to_numpy():
+    #         j = np.random.randint(0, num_items)
+    #         while j == i:
+    #             j = np.random.randint(0, num_items)
+    #         j_list.append(j)
+    #     print("Done")
+    #     j_list = np.reshape(np.array(j_list, dtype=train_df["idx_item"].to_numpy().dtype), train_df["idx_item"].to_numpy().shape)
+    #     train_data = tf.data.Dataset.from_tensor_slices((train_df["idx_user"].to_numpy(), train_df["idx_item"].to_numpy(), j_list, train_df["outcome"].to_numpy()))
+    #     with tqdm(total=len(train_df) // flag.batch_size + 1) as t:
+    #         t.set_description('Training Epoch %i' % epoch)
+    #         for user, item, item_j, value in train_data.shuffle(100).batch(flag.batch_size):
+    #             step = model.propensity_train((user, item, item_j, value))
+    #             t.update()
+    #     vali_data = tf.data.Dataset.from_tensor_slices((vali_df["idx_user"].to_numpy(), vali_df["idx_item"].to_numpy()))
+    #     gamma_pred = None
+    #     p_pred = None
+    #     for u, i in vali_data.batch(5000):
+    #         gamma_batch, p_batch, _, _ = model((u, i), training=False)
+    #         if gamma_pred is None:
+    #             gamma_pred = gamma_batch
+    #         else:
+    #             gamma_pred = tf.concat((gamma_pred, gamma_batch), axis=0)
+    #         if p_pred is None:
+    #             p_pred = p_batch
+    #         else:
+    #             p_pred = tf.concat((p_pred, p_batch), axis=0)
+    #     p_true = np.squeeze(vali_df["propensity"].to_numpy())
+    #     p_pred = np.squeeze(p_pred.numpy())
+    #     p_pred = (p_pred - np.min(p_pred)) / (np.max(p_pred) - np.min(p_pred))
+    #     tau_res, _ = kendalltau(p_pred, p_true)
+    #     pearsonres, _ = pearsonr(p_pred, p_true)
+    #     mse = mean_squared_error(y_pred=p_pred, y_true=p_true)
+    #     val_obj = tau_res
+    #     if val_obj > optim_val_car:
+    #         optim_val_car = val_obj
+    #         if not os.path.isdir(plotpath+ '/' + flag.add):
+    #             os.makedirs(plotpath+ '/' + flag.add)
+    #         model.save_weights(plotpath + flag.add + "/.weights.h5")
+    #         print("Model saved!")
+    #         print(plotpath + flag.add + "/.weights.h5")
+    # model.load_weights(plotpath + flag.add + "/.weights.h5")
     return model
     
 if __name__ == "__main__":
