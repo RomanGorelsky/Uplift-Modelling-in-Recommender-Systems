@@ -152,7 +152,7 @@ def train_propensity(train_df, vali_df, test_df, flag, num_users, num_items, num
     #     pearsonres, _ = pearsonr(p_pred, p_true)
     #     mse = mean_squared_error(y_pred=p_pred, y_true=p_true)
     #     val_obj = tau_res
-    #     if abs(val_obj) > optim_val_car:
+    #     if val_obj > optim_val_car:
     #         optim_val_car = val_obj
     #         if not os.path.isdir(plotpath + '/' + flag.add):
     #             os.makedirs(plotpath + '/' + flag.add)

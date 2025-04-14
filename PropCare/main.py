@@ -7,7 +7,9 @@ import numpy as np
 import tensorflow as tf
 from evaluator import Evaluator
 from scipy.stats import kendalltau
-from sklearn.metrics import f1_score
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import f1_score, accuracy_score
+from scipy.stats import gaussian_kde
 import pickle
 import os
 import pandas as pd
@@ -45,6 +47,8 @@ parser.add_argument("--add", default='default', type=str,
                     help="additional information")
 parser.add_argument("--p_weight", default=0.4, type=float,
                     help="weight for p_loss")
+parser.add_argument("--r_weight", default=0.4, type=float,
+                    help="weight for r_loss")
 parser.add_argument("--saved_DLMF", default='n', type=str,
                     help="use saved weights of DLMF")
 parser.add_argument("--to_prob", default=True, type=bool,
@@ -95,62 +99,67 @@ def main(flag=flag):
         opt_epsilon = 0.7
         opt_c = 0.8
 
-        # opt_scale = 0.4
-        # opt_add = 0.3
-        # opt_epsilon = 0.8
-        # opt_c = 0.1
 
-        # scales = np.linspace(0.25, 0.9, 10)
-        # adds = np.linspace(0.2, 0.7, 5)
-        # epsilons = np.linspace(0.1, 0.9, 9)
-        # cs = np.linspace(0.1, 0.9, 9)
+        # scales = np.linspace(0.3, 0.6, 9)
+        # adds = np.linspace(0, 0.2, 9)
+        # epsilons = np.linspace(0.5, 0.9, 9)
+        # cs = np.linspace(0.1, 0.9, 100)
 
         p_pred = None
+        r_pred = None
 
         for u, i in train_data.batch(5000):
-            _, p_batch, _, _ = model((u, i), training=False)
+            _, p_batch, r_batch, _ = model((u, i), training=False)
             if p_pred is None:
                 p_pred = p_batch
+                r_pred = r_batch
             else:
                 p_pred = tf.concat((p_pred, p_batch), axis=0)
+                r_pred = tf.concat((r_pred, r_batch), axis=0)
 
         p_pred = p_pred.numpy()
-        p_pred_true = np.squeeze(train_df["propensity"].to_numpy())
+        r_pred = r_pred.numpy()
+        # p_pred_true = np.squeeze(train_df["propensity"].to_numpy())
 
         p_pred_t = opt_scale * ((p_pred - np.mean(p_pred))/ (np.std(p_pred)))
         p_pred_t = np.clip((p_pred_t + opt_add), 0.0, 1.0)
-        
+
+        r_pred_t = opt_scale * ((r_pred - np.mean(r_pred))/ (np.std(r_pred)))
+        r_pred_t = np.clip((r_pred_t + opt_add), 0.0, 1.0)
+
         # t_pred_t = np.where(p_pred_t >= opt_epsilon, 1.0, 0.0)
         # max_f = f1_score(train_df['treated'], t_pred_t)
-        # p_pred_t = p_pred_t * opt_c
+        # p_pred_t = p_pred * opt_c
         # p_pred_t = np.clip(p_pred_t, 0.0001, 0.9999)
         # p_pred_t = np.squeeze(p_pred_t)
-        # kd_max, _ = kendalltau(p_pred_t, p_pred_true)
-        # print('Initial Kendall Tau: ', kd_max)
+        # roc_max = roc_auc_score(train_df['treated'], p_pred_t)
         # print('Initial F1 score', max_f)
+        # print('Initial ROC-AUC', roc_max)
 
         # for scale in scales:
         #     for add in adds:
         #         for epsilon in epsilons:
-        #             for c in cs:
-        #                 p_pred_t = scale * ((p_pred - np.mean(p_pred))/ (np.std(p_pred)))
-        #                 p_pred_t = np.clip((p_pred_t + add), 0.0, 1.0)
-        #                 t_pred_t = np.where(p_pred_t >= epsilon, 1.0, 0.0)
-        #                 f_score = f1_score(train_df['treated'], t_pred_t)
-        #                 p_pred_t = p_pred_t * c
-        #                 p_pred_t = np.clip(p_pred_t, 0.0001, 0.9999)
-        #                 p_pred_t = np.squeeze(p_pred_t)
-        #                 kd, _ = kendalltau(p_pred_t, p_pred_true)
-        #                 if kd > kd_max and f_score > max_f:
-        #                     max_f = f_score
-        #                     kd_max = kd
-        #                     opt_scale = scale
-        #                     opt_add = add
-        #                     opt_epsilon = epsilon
-        #                     opt_c = c
+        #             p_pred_t = scale * ((p_pred - np.mean(p_pred))/ (np.std(p_pred)))
+        #             p_pred_t = np.clip((p_pred_t + add), 0.0, 1.0)
+        #             t_pred_t = np.where(p_pred_t >= epsilon, 1.0, 0.0)
+        #             f_score = f1_score(train_df['treated'], t_pred_t)
+        #             if f_score > max_f:
+        #                 max_f = f_score
+        #                 opt_scale = scale
+        #                 opt_add = add
+        #                 opt_epsilon = epsilon
         
-        # print('Max Kendall Tau: ', kd_max)
+        # for c in cs:
+        #     p_pred_t = p_pred * c
+        #     p_pred_t = np.clip(p_pred_t, 0.0001, 0.9999)
+        #     p_pred_t = np.squeeze(p_pred_t)
+        #     roc = roc_auc_score(train_df['treated'], p_pred_t)
+        #     if roc > roc_max:
+        #         roc_max = roc
+        #         opt_c = c
+        
         # print('Max F1 score: ', max_f)
+        # print('Max ROC-AUC: ', roc_max)
         # print('Optimal scale: ', opt_scale)
         # print('Optimal add: ', opt_add)
         # print('Optimal epsilon: ', opt_epsilon)
@@ -164,13 +173,20 @@ def main(flag=flag):
             flag.thres = 0.65
 
         t_pred = np.where(p_pred_t >= flag.thres, 1.0, 0.0)
+        rel_pred = np.where(r_pred_t >= 0.5, 1.0, 0.0)
+
         if flag.dataset == "d" or "p":
             p_pred = p_pred * opt_c
+            r_pred = r_pred * opt_c
         if flag.dataset == "ml":
             p_pred = p_pred * 0.2
+            r_pred = r_pred * 0.2
 
         train_df["propensity"] = np.clip(p_pred, 0.0001, 0.9999)
+        train_df["relevance"] = np.clip(r_pred, 0.0001, 0.9999)
+
         train_df["treated"] = t_pred
+        train_df["relevant"] = rel_pred
 
         if flag.dataset == "d":
             cap = 0.03
@@ -234,24 +250,34 @@ def main(flag=flag):
 
                 p_pred_test = p_pred_test.numpy()
                 r_pred_test = r_pred_test.numpy()
+
                 p_pred_test_t = opt_scale * ((p_pred_test - np.mean(p_pred_test))/ (np.std(p_pred_test)))
                 p_pred_test_t = np.clip((p_pred_test_t + opt_add), 0.0, 1.0)
 
+                r_pred_test_t = opt_scale * ((r_pred_test - np.mean(r_pred_test))/ (np.std(r_pred_test)))
+                r_pred_test_t = np.clip((r_pred_test_t + opt_add), 0.0, 1.0)
+
                 t_test_pred = np.where(p_pred_test_t >= flag.thres, 1.0, 0.0)
+                r_test_pred = np.where(r_pred_test_t >= 0.5, 1.0, 0.0)
+
                 p_pred_test = p_pred_test * opt_c
                 r_pred_test = r_pred_test * opt_c
+
                 test_df_t["propensity_estimate"] = np.clip(p_pred_test, 0.0001, 0.9999)
                 test_df_t["relevance_estimate"] = np.clip(r_pred_test, 0.0001, 0.9999)
-                outcome_estimate = test_df_t["propensity_estimate"] * test_df_t["relevance_estimate"]
-                outcome_estimate = opt_scale * ((outcome_estimate - np.mean(outcome_estimate))/ (np.std(outcome_estimate)))
-                outcome_estimate = np.clip((outcome_estimate + opt_add), 0.0, 1.0)
-                test_df_t["outcome_estimate"] = np.where(outcome_estimate >= flag.thres, 1.0, 0.0)
+
+                test_df_t["outcome_probability_estimate"] = test_df_t["propensity_estimate"] * test_df_t["relevance_estimate"]
+                test_df_t["outcome_estimate"] = np.where(test_df_t["outcome_probability_estimate"] >= 0.55, 1.0, 0.0)
+
                 test_df_t["treated_estimate"] = t_test_pred
+                test_df_t["relevant_estimate"] = r_test_pred
+
                 causal_effect_estimate = \
                     test_df_t["outcome_estimate"] * \
                     (test_df_t["treated_estimate"] / test_df_t["propensity_estimate"] - \
                     (1 - test_df_t["treated_estimate"]) / (1 - test_df_t["propensity_estimate"]))
                 test_df_t["causal_effect_estimate"] = np.clip(causal_effect_estimate, -1, 1)
+
                 train_df = train_df[train_df.outcome>0]
                 popularity = train_df["idx_item"].value_counts().reset_index()
                 popularity.columns = ["idx_item", "popularity"]
@@ -389,7 +415,6 @@ def main(flag=flag):
         precisionlist_pred.append(precision_pred)
         precisionlist_pop.append(precision_pop)       
 
-    
     with open(plotpath+"/result_" + flag.dataset +".txt", "a+") as f:
         print("CP10:", np.mean(cp10list), np.std(cp10list), file=f)
         print("CP100:", np.mean(cp100list), np.std(cp100list), file=f)
