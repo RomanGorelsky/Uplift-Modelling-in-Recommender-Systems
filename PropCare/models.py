@@ -174,22 +174,23 @@ class Causal_Model(Model, ABC):
             loss_pair = tf.multiply(weights_loss, loss_pair)
             loss_pair = -tf.reduce_mean(loss_pair)
 
-            # KL divergence regularization
-            target_p_samples_i = tf.stop_gradient(self.target_dist.sample(tf.shape(p_i)))
-            target_p_samples_j = tf.stop_gradient(self.target_dist.sample(tf.shape(p_j)))
+            # KL-дивергенция (регуляризация propensity)
+            target_samples_pi = tf.stop_gradient(self.target_dist.sample(tf.shape(p_i)))
+            target_samples_pj = tf.stop_gradient(self.target_dist.sample(tf.shape(p_j)))
 
-            qp1 = tf.clip_by_value(tf.sort(target_p_samples_i, axis=0), 0.0001, 0.9999)
-            qp2 = tf.clip_by_value(tf.sort(target_p_samples_j, axis=0), 0.0001, 0.9999)
+            qp1 = tf.clip_by_value(tf.sort(target_samples_pi, axis=0), 0.0001, 0.9999)
+            qp2 = tf.clip_by_value(tf.sort(target_samples_pj, axis=0), 0.0001, 0.9999)
             p1 = tf.clip_by_value(tf.sort(p_i, axis=0), 0.0001, 0.9999)
             p2 = tf.clip_by_value(tf.sort(p_j, axis=0), 0.0001, 0.9999)
 
             p_loss = self.kl(p1, qp1) + self.kl(p2, qp2)
 
-            target_r_samples_i = tf.stop_gradient(self.target_dist.sample(tf.shape(r_i)))
-            target_r_samples_j = tf.stop_gradient(self.target_dist.sample(tf.shape(r_j)))
+            # KL-дивергенция (регуляризация relevance)
+            target_samples_ri = tf.stop_gradient(self.target_dist.sample(tf.shape(r_i)))
+            target_samples_rj = tf.stop_gradient(self.target_dist.sample(tf.shape(r_j)))
 
-            qr1 = tf.clip_by_value(tf.sort(target_r_samples_i, axis=0), 0.0001, 0.9999)
-            qr2 = tf.clip_by_value(tf.sort(target_r_samples_j, axis=0), 0.0001, 0.9999)
+            qr1 = tf.clip_by_value(tf.sort(target_samples_ri, axis=0), 0.0001, 0.9999)
+            qr2 = tf.clip_by_value(tf.sort(target_samples_rj, axis=0), 0.0001, 0.9999)
             r1 = tf.clip_by_value(tf.sort(r_i, axis=0), 0.0001, 0.9999)
             r2 = tf.clip_by_value(tf.sort(r_j, axis=0), 0.0001, 0.9999)
 

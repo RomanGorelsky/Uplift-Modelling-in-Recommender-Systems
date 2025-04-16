@@ -73,7 +73,7 @@ def main(flag=flag):
     precisionlist_pred = []
     precisionlist_pop = []
 
-    random_seed = int(233)
+    random_seed = int(235)
     for epoch in range(flag.repeat):
         train_df, vali_df, test_df, num_users, num_items, num_times, popular = prepare_data(flag)
         random_seed += 1
