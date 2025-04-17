@@ -5,7 +5,6 @@ import random
 import pandas as pd
 from evaluator import Evaluator
 import pickle
-from train import plotpath
 
 
 class Recommender(object):
@@ -680,7 +679,7 @@ class DLMF(Recommender):
                     if current_iter % 100000 == 0:
                         print(str(current_iter) + "/" + str(iter))
                     if current_iter % 10000000 == 0:
-                        with open(plotpath + path + "dlmf_weights.pkl", "wb") as f:
+                        with open(path + "dlmf_weights.pkl", "wb") as f:
                             pickle.dump(self.__dict__, f)
                             print("DLMF weights saved.")
                     if current_iter >= iter:

@@ -222,7 +222,7 @@ def main(flag=flag):
                            capping_C = cap, learn_rate = lr, reg_factor = rf)
         
         if flag.rec_train:
-            recommender.train(train_df, flag.dataset, iter=itr)
+            recommender.train(train_df, plotpath + flag.add, iter=itr)
         
         else:
             with open(plotpath + flag.add + "dlmf_weights.pkl", "rb") as f:
