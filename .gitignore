@@ -11,3 +11,6 @@ PropCare/CausalNBR/data/preprocessed/.DS_Store
 PropCare/results/.DS_Store
 .DS_Store
 PropCare/.DS_Store
+PropCare/results/default/p/df_ranking_10.csv
+PropCare/results/default/p/df_ranking_100.csv
+PropCare/results/default/p/df_sorted.csv

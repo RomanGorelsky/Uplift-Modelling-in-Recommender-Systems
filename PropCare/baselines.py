@@ -5,6 +5,7 @@ import random
 import pandas as pd
 from evaluator import Evaluator
 import pickle
+from train import plotpath
 
 
 class Recommender(object):
@@ -24,7 +25,7 @@ class Recommender(object):
         self.colname_treatment = colname_treatment
         self.colname_propensity = colname_propensity
 
-    def train(self, df, iter=100):
+    def train(self, df, path, iter=100):
         pass
 
     def predict(self, df):
@@ -580,7 +581,7 @@ class DLMF(Recommender):
             self.item_biases = np.zeros(self.num_items)
             self.global_bias = 0.0
 
-    def train(self, df, iter = 100):
+    def train(self, df, path, iter = 100):
         df_train = df.loc[df.loc[:, self.colname_outcome] > 0, :] # need only positive outcomes
         if self.only_treated: # train only with treated positive (DLTO)
             df_train = df_train.loc[df_train.loc[:, self.colname_treatment] > 0, :]
@@ -675,12 +676,14 @@ class DLMF(Recommender):
                             self.learn_rate * (-coeff - self.reg_bias_j * self.item_biases[j])
 
                     current_iter += 1
+
                     if current_iter % 100000 == 0:
-                        print(str(current_iter)+"/"+str(iter))
-                    if current_iter >= iter:
-                        with open("dlmf_weights.pkl", "wb") as f:
+                        print(str(current_iter) + "/" + str(iter))
+                    if current_iter % 10000000 == 0:
+                        with open(plotpath + path + "dlmf_weights.pkl", "wb") as f:
                             pickle.dump(self.__dict__, f)
                             print("DLMF weights saved.")
+                    if current_iter >= iter:
                         return err / iter
 
     def predict(self, df):

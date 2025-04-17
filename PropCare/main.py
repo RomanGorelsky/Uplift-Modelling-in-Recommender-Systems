@@ -31,6 +31,10 @@ parser.add_argument("--click_layer_units",
                     help="number of nodes each layer for MLP layers in Click estimators")
 parser.add_argument("--epoch", default=25, type=int,
                     help="Number of epochs in the training")
+parser.add_argument("--prop_train", default=False, type=bool,
+                    help="Start the training of PropCare")
+parser.add_argument("--rec_train", default=False, type=bool,
+                    help="Start the training of Recommender")
 parser.add_argument("--lambda_1", default=10.0, type=float,
                     help="weight for popularity loss.")
 parser.add_argument("--lambda_2", default=0.1, type=float,
@@ -57,9 +61,18 @@ flag = parser.parse_args()
 
 
 def main(flag=flag):
-    cp10list = []
-    cp100list = []
-    cdcglist = []
+
+    cp10list_pred = []
+    cp100list_pred = []
+    cdcglist_pred = []
+
+    cp10list_rel = []
+    cp100list_rel = []
+    cdcglist_rel = []
+
+    cp10list_pop = []
+    cp100list_pop = []
+    cdcglist_pop = []
 
     ndcglist_rel = []
     ndcglist_pred = []
@@ -73,7 +86,9 @@ def main(flag=flag):
     precisionlist_pred = []
     precisionlist_pop = []
 
-    random_seed = int(235)
+    random_seed = int(245)
+    flag.add = flag.add + '/' + flag.dataset + '/'
+    
     for epoch in range(flag.repeat):
         train_df, vali_df, test_df, num_users, num_items, num_times, popular = prepare_data(flag)
         random_seed += 1
@@ -98,7 +113,6 @@ def main(flag=flag):
         opt_add = 0.5
         opt_epsilon = 0.7
         opt_c = 0.8
-
 
         # scales = np.linspace(0.3, 0.6, 9)
         # adds = np.linspace(0, 0.2, 9)
@@ -206,17 +220,27 @@ def main(flag=flag):
 
         recommender = DLMF(num_users, num_items, capping_T = cap, 
                            capping_C = cap, learn_rate = lr, reg_factor = rf)
+        
+        if flag.rec_train:
+            recommender.train(train_df, flag.dataset, iter=itr)
+        
+        else:
+            with open(plotpath + flag.add + "dlmf_weights.pkl", "rb") as f:
+                saved_state = pickle.load(f)
+            recommender.__dict__.update(saved_state)
+            print("DLMF weights loaded successfully!")
 
-        # with open("dlmf_weights.pkl", "rb") as f:
-        #     saved_state = pickle.load(f)
-        # recommender.__dict__.update(saved_state)
-        # print("DLMF weights loaded successfully!")
+        cp10_tmp_list_pred = []
+        cp100_tmp_list_pred = []
+        cdcg_tmp_list_pred = []
 
-        recommender.train(train_df, iter=itr)
+        cp10_tmp_list_rel = []
+        cp100_tmp_list_rel = []
+        cdcg_tmp_list_rel = []
 
-        cp10_tmp_list = []
-        cp100_tmp_list = []
-        cdcg_tmp_list = []
+        cp10_tmp_list_pop = []
+        cp100_tmp_list_pop = []
+        cdcg_tmp_list_pop = []
         
         ndcg_tmp_list_rel = []
         ndcg_tmp_list_pred = []
@@ -283,13 +307,21 @@ def main(flag=flag):
                 popularity.columns = ["idx_item", "popularity"]
                 test_df_t = test_df_t.merge(popularity, on="idx_item", how="left")
                 test_df_t["pred"] = recommender.predict(test_df_t)
+
                 evaluator = Evaluator()
 
-                cp10_tmp_list.append(evaluator.evaluate(test_df_t, 'CPrec', 10))
-                cp100_tmp_list.append(evaluator.evaluate(test_df_t, 'CPrec', 100))
-                cdcg_tmp_list.append(evaluator.evaluate(test_df_t, 'CDCG', 100000))
+                cp10_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'CPrecS', 10))
+                cp100_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'CPrecS', 100))
+                cdcg_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'CDCGS', 100000))
 
-                
+                cp10_tmp_list_rel.append(evaluator.evaluate(test_df_t, 'CPrecR', 10))
+                cp100_tmp_list_rel.append(evaluator.evaluate(test_df_t, 'CPrecR', 100))
+                cdcg_tmp_list_rel.append(evaluator.evaluate(test_df_t, 'CDCGR', 100000))
+
+                cp10_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'CPrecP', 10))
+                cp100_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'CPrecP', 100))
+                cdcg_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'CDCGP', 100000))
+
                 ndcg_tmp_list_rel.append(evaluator.evaluate(test_df_t, 'NDCGR', 10))
                 ndcg_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'NDCGS', 10))
                 ndcg_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'NDCGP', 10))
@@ -310,7 +342,7 @@ def main(flag=flag):
                 print(f"Spearman Rho: {spearman_score:.4f}")
                 print(f"Average Rank Position Difference: {pos_diff:.4f}")
 
-                _ = evaluator.get_sorted(test_df_t)
+                evaluator.get_dataframes(test_df_t, plotpath + flag.add)
         else:
             for t in [0]:
                 test_df_t = test_df[test_df["idx_time"] == t]
@@ -356,9 +388,18 @@ def main(flag=flag):
                 test_df_t = test_df_t.merge(popularity, on="idx_item", how="left")
                 test_df_t["pred"] = recommender.predict(test_df_t)
                 evaluator = Evaluator()
-                cp10_tmp_list.append(evaluator.evaluate(test_df_t, 'CPrec', 10))
-                cp100_tmp_list.append(evaluator.evaluate(test_df_t, 'CPrec', 100))
-                cdcg_tmp_list.append(evaluator.evaluate(test_df_t, 'CDCG', 100000))
+
+                cp10_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'CPrecS', 10))
+                cp100_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'CPrecS', 100))
+                cdcg_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'CDCGS', 100000))
+
+                cp10_tmp_list_rel.append(evaluator.evaluate(test_df_t, 'CPrecR', 10))
+                cp100_tmp_list_rel.append(evaluator.evaluate(test_df_t, 'CPrecR', 100))
+                cdcg_tmp_list_rel.append(evaluator.evaluate(test_df_t, 'CDCGR', 100000))
+
+                cp10_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'CPrecP', 10))
+                cp100_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'CPrecP', 100))
+                cdcg_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'CDCGP', 100000))
 
                 ndcg_tmp_list_rel.append(evaluator.evaluate(test_df_t, 'NDCGR', 10))
                 ndcg_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'NDCGS', 10))
@@ -380,11 +421,19 @@ def main(flag=flag):
                 print(f"Spearman Rho: {spearman_score:.4f}")
                 print(f"Average Rank Position Difference: {pos_diff:.4f}")
 
-                _ = evaluator.get_sorted(test_df_t)
+                evaluator.get_dataframes(test_df_t, plotpath + flag.add)
 
-        cp10 = np.mean(cp10_tmp_list)
-        cp100 = np.mean(cp100_tmp_list)
-        cdcg = np.mean(cdcg_tmp_list)
+        cp10_pred = np.mean(cp10_tmp_list_pred)
+        cp100_pred = np.mean(cp100_tmp_list_pred)
+        cdcg_pred = np.mean(cdcg_tmp_list_pred)
+
+        cp10_rel = np.mean(cp10_tmp_list_rel)
+        cp100_rel = np.mean(cp100_tmp_list_rel)
+        cdcg_rel = np.mean(cdcg_tmp_list_rel)
+
+        cp10_pop = np.mean(cp10_tmp_list_pop)
+        cp100_pop = np.mean(cp100_tmp_list_pop)
+        cdcg_pop = np.mean(cdcg_tmp_list_pop)
 
         ndcg_rel = np.mean(ndcg_tmp_list_rel)
         ndcg_pred = np.mean(ndcg_tmp_list_pred)
@@ -394,14 +443,21 @@ def main(flag=flag):
         recall_pred = np.mean(recall_tmp_list_pred)
         recall_pop = np.mean(recall_tmp_list_pop)
 
-
         precision_rel = np.mean(precision_tmp_list_rel)
         precision_pred = np.mean(precision_tmp_list_pred)
         precision_pop = np.mean(precision_tmp_list_pop)
 
-        cp10list.append(cp10)
-        cp100list.append(cp100)
-        cdcglist.append(cdcg)
+        cp10list_pred.append(cp10_pred)
+        cp100list_pred.append(cp100_pred)
+        cdcglist_pred.append(cdcg_pred)
+
+        cp10list_rel.append(cp10_rel)
+        cp100list_rel.append(cp100_rel)
+        cdcglist_rel.append(cdcg_rel)
+
+        cp10list_pop.append(cp10_pop)
+        cp100list_pop.append(cp100_pop)
+        cdcglist_pop.append(cdcg_pop)
 
         ndcglist_rel.append(ndcg_rel)
         ndcglist_pred.append(ndcg_pred)
@@ -415,10 +471,18 @@ def main(flag=flag):
         precisionlist_pred.append(precision_pred)
         precisionlist_pop.append(precision_pop)       
 
-    with open(plotpath+"/result_" + flag.dataset +".txt", "a+") as f:
-        print("CP10:", np.mean(cp10list), np.std(cp10list), file=f)
-        print("CP100:", np.mean(cp100list), np.std(cp100list), file=f)
-        print("CDCG:", np.mean(cdcglist), np.std(cdcglist), file=f)
+    with open(plotpath + "/result_" + flag.dataset +".txt", "a+") as f:
+        print("CP10S:", np.mean(cp10list_pred), np.std(cp10list_pred), file=f)
+        print("CP10R:", np.mean(cp10list_rel), np.std(cp10list_rel), file=f)
+        print("CP10P:", np.mean(cp10list_pop), np.std(cp10list_pop), file=f)
+
+        print("CP100S:", np.mean(cp100list_pred), np.std(cp100list_pred), file=f)
+        print("CP100R:", np.mean(cp100list_rel), np.std(cp100list_rel), file=f)
+        print("CP100P:", np.mean(cp100list_pop), np.std(cp100list_pop), file=f)
+        
+        print("CDCGS:", np.mean(cdcglist_pred), np.std(cdcglist_pred), file=f)
+        print("CDCGR:", np.mean(cdcglist_rel), np.std(cdcglist_rel), file=f)
+        print("CDCGP:", np.mean(cdcglist_pop), np.std(cdcglist_pop), file=f)
 
         print("NDCG10R:", np.mean(ndcglist_rel), np.std(ndcglist_rel), file=f)
         print("NDCG10S:", np.mean(ndcglist_pred), np.std(ndcglist_pred), file=f)
@@ -432,7 +496,6 @@ def main(flag=flag):
         print("Precision10S:", np.mean(precisionlist_pred), np.std(precisionlist_pred), file=f)
         print("Precision10P:", np.mean(precisionlist_pop), np.std(precisionlist_pop), file=f) 
         print("--------------------------------", file=f)    
-
             
 if __name__ == "__main__":
     physical_devices = tf.config.list_physical_devices('GPU')
