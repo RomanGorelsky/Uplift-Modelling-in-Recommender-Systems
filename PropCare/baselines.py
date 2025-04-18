@@ -551,11 +551,14 @@ class DLMF(Recommender):
                  coeff_T = 1.0, coeff_C = 1.0,
                  colname_user='idx_user', colname_item='idx_item',
                  colname_outcome='outcome', colname_prediction='pred',
-                 colname_treatment='treated', colname_propensity='propensity'):
+                 colname_treatment='treated', colname_propensity='propensity', 
+                 colname_relevance='relevance', colname_relevant='relevant'):
         super().__init__(num_users=num_users, num_items=num_items,
                          colname_user=colname_user, colname_item=colname_item,
                          colname_outcome=colname_outcome, colname_prediction=colname_prediction,
                          colname_treatment=colname_treatment, colname_propensity=colname_propensity)
+        self.colname_relevance = colname_relevance
+        self.colname_relevant = colname_relevant
         self.metric = metric
         self.capping_T = capping_T
         self.capping_C = capping_C
@@ -582,6 +585,7 @@ class DLMF(Recommender):
 
     def train(self, df, path, iter = 100):
         df_train = df.loc[df.loc[:, self.colname_outcome] > 0, :] # need only positive outcomes
+
         if self.only_treated: # train only with treated positive (DLTO)
             df_train = df_train.loc[df_train.loc[:, self.colname_treatment] > 0, :]
 
@@ -589,30 +593,51 @@ class DLMF(Recommender):
             bool_cap = np.logical_and(df_train.loc[:, self.colname_propensity] < self.capping_T, df_train.loc[:, self.colname_treatment] == 1)
             if np.sum(bool_cap) > 0:
                 df_train.loc[bool_cap, self.colname_propensity] = self.capping_T
+
+            bool_cap = np.logical_and(df_train.loc[:, self.colname_relevance] < self.capping_T, df_train.loc[:, self.colname_relevant] == 1)
+            if np.sum(bool_cap) > 0:
+                df_train.loc[bool_cap, self.colname_relevance] = self.capping_T
+
         if self.capping_C is not None:      
             bool_cap = np.logical_and(df_train.loc[:, self.colname_propensity] > 1 - self.capping_C, df_train.loc[:, self.colname_treatment] == 0)
             if np.sum(bool_cap) > 0:
                 df_train.loc[bool_cap, self.colname_propensity] = 1 - self.capping_C
 
+            bool_cap = np.logical_and(df_train.loc[:, self.colname_relevance] > 1 - self.capping_C, df_train.loc[:, self.colname_relevant] == 0)
+            if np.sum(bool_cap) > 0:
+                df_train.loc[bool_cap, self.colname_relevant] = 1 - self.capping_C
+
         if self.with_IPS: # point estimate of individual treatment effect (ITE) <- for binary outcome abs(ITE) = IPS
-            df_train.loc[:, 'ITE'] =  df_train.loc[:, self.colname_treatment] * df_train.loc[:, self.colname_outcome]/df_train.loc[:, self.colname_propensity] - \
+            df_train.loc[:, 'ITET'] =  df_train.loc[:, self.colname_treatment] * df_train.loc[:, self.colname_outcome]/df_train.loc[:, self.colname_propensity] - \
                                       (1 - df_train.loc[:, self.colname_treatment]) * df_train.loc[:, self.colname_outcome]/(1 - df_train.loc[:, self.colname_propensity])
-            z_y_1 = df_train.loc[:, self.colname_treatment] * df_train.loc[:, self.colname_outcome]
-            z_y_1 = z_y_1.values
-            z_y_0 = (1 - df_train.loc[:, self.colname_treatment]) * df_train.loc[:, self.colname_outcome]
-            z_y_0 = z_y_0.values
+            zt_y_1 = df_train.loc[:, self.colname_treatment] * df_train.loc[:, self.colname_outcome]
+            zt_y_1 = zt_y_1.values
+            zt_y_0 = (1 - df_train.loc[:, self.colname_treatment]) * df_train.loc[:, self.colname_outcome]
+            zt_y_0 = zt_y_0.values
+
+            df_train.loc[:, 'ITER'] =  df_train.loc[:, self.colname_relevant] * df_train.loc[:, self.colname_outcome]/df_train.loc[:, self.colname_relevance] - \
+                                      (1 - df_train.loc[:, self.colname_relevant]) * df_train.loc[:, self.colname_outcome]/(1 - df_train.loc[:, self.colname_relevance])
+            zr_y_1 = df_train.loc[:, self.colname_relevant] * df_train.loc[:, self.colname_outcome]
+            zr_y_1 = zr_y_1.values
+            zr_y_0 = (1 - df_train.loc[:, self.colname_relevant]) * df_train.loc[:, self.colname_outcome]
+            zr_y_0 = zr_y_0.values
 
         else:
-            df_train.loc[:, 'ITE'] =  df_train.loc[:, self.colname_treatment] * df_train.loc[:, self.colname_outcome]  - \
+            df_train.loc[:, 'ITET'] =  df_train.loc[:, self.colname_treatment] * df_train.loc[:, self.colname_outcome]  - \
                                       (1 - df_train.loc[:, self.colname_treatment]) * df_train.loc[:, self.colname_outcome]
+            
+            df_train.loc[:, 'ITER'] =  df_train.loc[:, self.colname_relevant] * df_train.loc[:, self.colname_outcome]  - \
+                                      (1 - df_train.loc[:, self.colname_relevant]) * df_train.loc[:, self.colname_outcome]
 
         err = 0
         current_iter = 0
+
         while True:
             df_train = df_train.sample(frac=1)
             users = df_train.loc[:, self.colname_user].values
             items = df_train.loc[:, self.colname_item].values
-            ITE = df_train.loc[:, 'ITE'].values
+            ITET = df_train.loc[:, 'ITET'].values
+            ITER = df_train.loc[:, 'ITER'].values
 
             if self.metric in ['AR_logi', 'AR_sig', 'AR_hinge']:
                 for n in np.arange(len(df_train)):
@@ -630,36 +655,60 @@ class DLMF(Recommender):
                     j_factor = self.item_factors[j, :]
 
                     diff_rating = np.sum(u_factor * (i_factor - j_factor))
-                    
+
                     if self.with_bias:
                         diff_rating += (self.item_biases[i] - self.item_biases[j])
 
                     if self.metric == 'AR_logi':
-                        if ITE[n] >= 0:
-                            coeff = ITE[n] * self.coeff_T * self.func_sigmoid(-self.coeff_T * diff_rating) # Z=1, Y=1
-                            const_value = z_y_1[n] * self.coeff_T * self.func_sigmoid(-self.coeff_T * diff_rating)
+                        if ITET[n] >= 0:
+                            coeff_t = ITET[n] * self.coeff_T * self.func_sigmoid(-self.coeff_T * diff_rating) # Z=1, Y=1
+                            const_value = zt_y_1[n] * self.coeff_T * self.func_sigmoid(-self.coeff_T * diff_rating)
                         else:
-                            coeff = ITE[n] * self.coeff_C * self.func_sigmoid(self.coeff_C * diff_rating) # Z=0, Y=1
-                            const_value = z_y_0[n] * self.coeff_C * self.func_sigmoid(self.coeff_C * diff_rating)
+                            coeff_t = ITET[n] * self.coeff_C * self.func_sigmoid(self.coeff_C * diff_rating) # Z=0, Y=1
+                            const_value = zt_y_0[n] * self.coeff_C * self.func_sigmoid(self.coeff_C * diff_rating)
+                        
+                        if ITER[n] >= 0:
+                            coeff_r = ITER[n] * self.coeff_T * self.func_sigmoid(-self.coeff_T * diff_rating) # Z=1, Y=1
+                            const_value = zr_y_1[n] * self.coeff_T * self.func_sigmoid(-self.coeff_T * diff_rating)
+                        else:
+                            coeff_r = ITER[n] * self.coeff_C * self.func_sigmoid(self.coeff_C * diff_rating) # Z=0, Y=1
+                            const_value = zr_y_0[n] * self.coeff_C * self.func_sigmoid(self.coeff_C * diff_rating)
 
                     elif self.metric == 'AR_sig':
-                        if ITE[n] >= 0:
-                            coeff = ITE[n] * self.coeff_T * self.func_sigmoid(self.coeff_T * diff_rating) * self.func_sigmoid(-self.coeff_T * diff_rating)
+                        if ITET[n] >= 0:
+                            coeff_t = ITET[n] * self.coeff_T * self.func_sigmoid(self.coeff_T * diff_rating) * self.func_sigmoid(-self.coeff_T * diff_rating)
                         else:
-                            coeff = ITE[n] * self.coeff_C * self.func_sigmoid(self.coeff_C * diff_rating) * self.func_sigmoid(-self.coeff_C * diff_rating)
+                            coeff_t = ITET[n] * self.coeff_C * self.func_sigmoid(self.coeff_C * diff_rating) * self.func_sigmoid(-self.coeff_C * diff_rating)
+                        
+                        if ITER[n] >= 0:
+                            coeff_r = ITER[n] * self.coeff_T * self.func_sigmoid(self.coeff_T * diff_rating) * self.func_sigmoid(-self.coeff_T * diff_rating)
+                        else:
+                            coeff_r = ITER[n] * self.coeff_C * self.func_sigmoid(self.coeff_C * diff_rating) * self.func_sigmoid(-self.coeff_C * diff_rating)
 
                     elif self.metric == 'AR_hinge':
-                        if ITE[n] >= 0:
+                        if ITET[n] >= 0:
                             if self.coeff_T > 0 and diff_rating < 1.0/self.coeff_T:
-                                coeff = ITE[n] * self.coeff_T 
+                                coeff_t = ITET[n] * self.coeff_T 
                             else:
-                                coeff = 0.0
+                                coeff_t = 0.0
                         else:
                             if self.coeff_C > 0 and diff_rating > -1.0/self.coeff_C:
-                                coeff = ITE[n] * self.coeff_C
+                                coeff_t = ITET[n] * self.coeff_C
                             else:
-                                coeff = 0.0
+                                coeff_t = 0.0
+                        
+                        if ITER[n] >= 0:
+                            if self.coeff_T > 0 and diff_rating < 1.0/self.coeff_T:
+                                coeff_r = ITER[n] * self.coeff_T 
+                            else:
+                                coeff_r = 0.0
+                        else:
+                            if self.coeff_C > 0 and diff_rating > -1.0/self.coeff_C:
+                                coeff_r = ITER[n] * self.coeff_C
+                            else:
+                                coeff_r = 0.0
 
+                    coeff = coeff_t + 0.3 * coeff_r
                     err += np.abs(coeff)
 
                     self.user_factors[u, :] += \

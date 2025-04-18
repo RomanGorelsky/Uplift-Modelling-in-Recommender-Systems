@@ -120,19 +120,26 @@ def main(flag=flag):
         # cs = np.linspace(0.1, 0.9, 100)
 
         p_pred = None
+        r_pred = None
 
         for u, i in train_data.batch(5000):
-            _, p_batch, _, _ = model((u, i), training=False)
+            _, p_batch, r_batch, _ = model((u, i), training=False)
             if p_pred is None:
                 p_pred = p_batch
+                r_pred = r_batch
             else:
                 p_pred = tf.concat((p_pred, p_batch), axis=0)
+                r_pred = tf.concat((r_pred, r_batch), axis=0)
 
         p_pred = p_pred.numpy()
         # p_pred_true = np.squeeze(train_df["propensity"].to_numpy())
 
         p_pred_t = opt_scale * ((p_pred - np.mean(p_pred))/ (np.std(p_pred)))
         p_pred_t = np.clip((p_pred_t + opt_add), 0.0, 1.0)
+
+        r_pred = r_pred.numpy()
+        r_pred_t = opt_scale * ((r_pred - np.mean(r_pred))/ (np.std(r_pred)))
+        r_pred_t = np.clip((r_pred_t + opt_add), 0.0, 1.0)
 
         # t_pred_t = np.where(p_pred_t >= opt_epsilon, 1.0, 0.0)
         # max_f = f1_score(train_df['treated'], t_pred_t)
@@ -180,14 +187,19 @@ def main(flag=flag):
             flag.thres = 0.65
 
         t_pred = np.where(p_pred_t >= flag.thres, 1.0, 0.0)
+        rel_pred = np.where(r_pred_t >= flag.thres, 1.0, 0.0)
 
         if flag.dataset == "d" or "p":
             p_pred = p_pred * opt_c
+            r_pred = r_pred * opt_c
         if flag.dataset == "ml":
             p_pred = p_pred * 0.2
+            r_pred = r_pred * 0.2
         
         train_df["propensity"] = np.clip(p_pred, 0.0001, 0.9999)
+        train_df["relevance"] = np.clip(r_pred, 0.0001, 0.9999)
         train_df["treated"] = t_pred
+        train_df["relevant"] = rel_pred
 
         if flag.dataset == "d":
             cap = 0.03
