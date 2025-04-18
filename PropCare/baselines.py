@@ -630,6 +630,7 @@ class DLMF(Recommender):
                     j_factor = self.item_factors[j, :]
 
                     diff_rating = np.sum(u_factor * (i_factor - j_factor))
+                    
                     if self.with_bias:
                         diff_rating += (self.item_biases[i] - self.item_biases[j])
 
