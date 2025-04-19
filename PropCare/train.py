@@ -50,10 +50,10 @@ def prepare_data(flag):
         print("dunn_cate (original) is used.")
         # data = pd.read_csv('dh_original.csv')
         # data = dh_original.copy()
-        data_path = Path("./CausalNBR/data/preprocessed/dunn_cat_mailer_10_10_1_1/original_rp0.40")
+        data_path = Path("./CausalNBR/data/preprocessed/dunn_cat_mailer_10_10_1_1/1week/original_rp0.40")
     elif dataset == "p":
         print("dunn_cate (personalized) is used.")
-        data_path = Path("./CausalNBR/data/preprocessed/dunn_cat_mailer_10_10_1_1/rank_rp0.40_sf1.00_nr210")
+        data_path = Path("./CausalNBR/data/preprocessed/dunn_cat_mailer_10_10_1_1/1week/rank_rp0.40_sf1.00_nr210")
         # data = dh_personalized.copy()
         # data = pd.read_csv('dh_personalized.csv')
     elif dataset == "ml":

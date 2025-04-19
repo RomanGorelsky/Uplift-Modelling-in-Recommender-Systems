@@ -324,7 +324,8 @@ def main(flag=flag):
                 print(f"Spearman Rho: {spearman_score:.4f}")
                 print(f"Average Rank Position Difference: {pos_diff:.4f}")
 
-                evaluator.get_dataframes(test_df_t, plotpath + flag.add)
+                if t + 1 == num_times:
+                    evaluator.get_dataframes(test_df_t, plotpath + flag.add)
         else:
             for t in [0]:
                 test_df_t = test_df[test_df["idx_time"] == t]
