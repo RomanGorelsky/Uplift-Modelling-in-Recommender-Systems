@@ -583,7 +583,7 @@ class DLMF(Recommender):
             self.item_biases = np.zeros(self.num_items)
             self.global_bias = 0.0
 
-    def train(self, df, path, iter = 100):
+    def train(self, df, path, phi, iter = 100):
         df_train = df.loc[df.loc[:, self.colname_outcome] > 0, :] # need only positive outcomes
 
         if self.only_treated: # train only with treated positive (DLTO)
@@ -708,7 +708,7 @@ class DLMF(Recommender):
                             else:
                                 coeff_r = 0.0
 
-                    coeff = coeff_t + 0.3 * coeff_r
+                    coeff = coeff_t + phi * coeff_r
                     err += np.abs(coeff)
 
                     self.user_factors[u, :] += \

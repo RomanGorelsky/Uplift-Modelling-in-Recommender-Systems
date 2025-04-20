@@ -50,10 +50,10 @@ def prepare_data(flag):
         print("dunn_cate (original) is used.")
         # data = pd.read_csv('dh_original.csv')
         # data = dh_original.copy()
-        data_path = Path("./CausalNBR/data/preprocessed/dunn_cat_mailer_10_10_1_1/original_rp0.40")
+        data_path = Path("./CausalNBR/data/preprocessed/dunn_cat_mailer_10_10_1_1/1week/original_rp0.40")
     elif dataset == "p":
         print("dunn_cate (personalized) is used.")
-        data_path = Path("./CausalNBR/data/preprocessed/dunn_cat_mailer_10_10_1_1/rank_rp0.40_sf1.00_nr210")
+        data_path = Path("./CausalNBR/data/preprocessed/dunn_cat_mailer_10_10_1_1/1week/rank_rp0.40_sf1.00_nr210")
         # data = dh_personalized.copy()
         # data = pd.read_csv('dh_personalized.csv')
     elif dataset == "ml":
@@ -84,7 +84,6 @@ def prepare_data(flag):
     test_df["idx_item"] = test_df["idx_item"].map(item2item_encoded)
     num_users = len(user_ids)
     num_items = len(item_ids)
-    print(num_items)
     if dataset == "d" or dataset == "p":
         num_times = len(train_df["idx_time"].unique().tolist())
     else: 
@@ -96,7 +95,6 @@ def prepare_data(flag):
     train_df_positive = train_df[train_df["outcome"] > 0]
     counts = count_freq(train_df_positive['idx_item'].to_numpy())
     np_counts = np.zeros(num_items)
-    print(np_counts.shape)
     np_counts[counts[:, 0].astype(int)] = counts[:, 1].astype(int)
 
     return train_df, vali_df, test_df, num_users, num_items, num_times, np_counts
