@@ -64,7 +64,7 @@ def main(flag=flag):
 
     flag.add = flag.add + '/' + flag.dataset + '/'
 
-    for th in [0.6, 0.7]:
+    for th in [0.5, 0.6, 0.7]:
         for phi in [0.1, 0.2, 0.3]:
 
             cp10list_pred = []
