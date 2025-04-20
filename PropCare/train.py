@@ -84,7 +84,6 @@ def prepare_data(flag):
     test_df["idx_item"] = test_df["idx_item"].map(item2item_encoded)
     num_users = len(user_ids)
     num_items = len(item_ids)
-    print(num_items)
     if dataset == "d" or dataset == "p":
         num_times = len(train_df["idx_time"].unique().tolist())
     else: 
@@ -96,7 +95,6 @@ def prepare_data(flag):
     train_df_positive = train_df[train_df["outcome"] > 0]
     counts = count_freq(train_df_positive['idx_item'].to_numpy())
     np_counts = np.zeros(num_items)
-    print(np_counts.shape)
     np_counts[counts[:, 0].astype(int)] = counts[:, 1].astype(int)
 
     return train_df, vali_df, test_df, num_users, num_items, num_times, np_counts
