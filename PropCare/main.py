@@ -1,7 +1,7 @@
 import argparse
 from train import prepare_data, train_propensity
 from train import plotpath, Causal_Model
-from baselines import DLMF, PopularBase, MF, CausalNeighborBase
+from baselines import DLMF, PopularBase, MF, CausalNeighborBase, DLMFMod
 import numpy as np
 # from CJBPR import CJBPR
 import tensorflow as tf
@@ -219,7 +219,10 @@ def main(flag=flag):
             rf = 0.1
             itr = 100e6
 
-        recommender = DLMF(num_users, num_items, capping_T = cap, 
+        # recommender = DLMF(num_users, num_items, capping_T = cap, 
+        #                 capping_C = cap, learn_rate = lr, reg_factor = rf)
+
+        recommender = DLMFMod(num_users, num_items, capping_T = cap, 
                         capping_C = cap, learn_rate = lr, reg_factor = rf)
         
         if flag.rec_train:
@@ -310,6 +313,7 @@ def main(flag=flag):
                 test_df_t = test_df_t.merge(popularity, on="idx_item", how="left")
                 test_df_t['popularity'] = (test_df_t['popularity'] - np.min(test_df_t['popularity'])) \
                                             / (np.max(test_df_t['popularity']) - np.min(test_df_t['popularity']))
+                test_df_t['frequency'] = test_df_t['personal_popular']
                 test_df_t['personal_popular'] = test_df_t['personal_popular'] + test_df_t['popularity']
 
                 test_df_t["pred"] = recommender.predict(test_df_t)
