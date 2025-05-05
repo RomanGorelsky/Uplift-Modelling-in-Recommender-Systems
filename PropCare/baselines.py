@@ -694,7 +694,7 @@ class DLMFMod(Recommender):
         frequencies = df[self.colname_frequency].values
         pred = np.zeros(len(df))
         for n in np.arange(len(df)):
-            pred[n] = np.inner(self.user_factors[users[n], :] + frequencies[n], self.item_factors[items[n], :])
+            pred[n] = np.inner(self.user_factors[users[n], :], self.item_factors[items[n], :]) + frequencies[n]
             if self.with_bias:
                 pred[n] += self.item_biases[items[n]]
                 pred[n] += self.user_biases[users[n]]

@@ -182,6 +182,8 @@ These are sufficient information for calculating purchase probabilities with and
 To generate ***Category-Original*** dataset,
 ```bash:sample
 python prepare_data.py -d data/preprocessed/dunn_cat_mailer_10_10_1_1 -tlt 1 -tlv 1 -tle 1 -rp 0.4 -mas original -cap 0.000001 -trt
+
+python prepare_data.py -d data/preprocessed/dunn_cat_mailer_10_10_1_1 -tlt 10 -tlv 1 -tle 10 -rp 0.4 -mas original -cap 0.000001 -trt
 ```
 The output folder is *data/preprocessed/dunn_cat_mailer_10_10_1_1/original_rp0.40*.
 Note that we set n_train=1 by *-tlt 1*.
@@ -189,6 +191,8 @@ Note that we set n_train=1 by *-tlt 1*.
 To generate ***Category-Personalized (b=1.0)*** dataset,
 ```bash:sample
 python prepare_data.py -d data/preprocessed/dunn_cat_mailer_10_10_1_1 -tlt 1 -tlv 1 -tle 1 -rp 0.4 -mas rank -sf 1.0 -nr 210 -cap 0.000001 -trt
+
+python prepare_data.py -d data/preprocessed/dunn_cat_mailer_10_10_1_1 -tlt 10 -tlv 1 -tle 10 -rp 0.4 -mas rank -sf 2.0 -nr 210 -cap 0.000001 -trt
 ```
 The output folder is *data/preprocessed/dunn_cat_mailer_10_10_1_1/rank_rp0.40_sf1.00_nr210*.
 Note that we set &beta;=1.0 as default.

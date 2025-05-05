@@ -104,7 +104,6 @@ def main(flag=flag):
             random_seed
         )
         model = train_propensity(train_df, vali_df, test_df, flag, num_users, num_items, num_times, popular)
-        print(test_df['personal_popular'].value_counts())
 
         train_user = tf.convert_to_tensor(train_df["idx_user"].to_numpy(), dtype=tf.int32)
         train_item = tf.convert_to_tensor(train_df["idx_item"].to_numpy(), dtype=tf.int64)
@@ -313,6 +312,7 @@ def main(flag=flag):
                 test_df_t = test_df_t.merge(popularity, on="idx_item", how="left")
                 test_df_t['popularity'] = (test_df_t['popularity'] - np.min(test_df_t['popularity'])) \
                                             / (np.max(test_df_t['popularity']) - np.min(test_df_t['popularity']))
+                test_df_t['popularity'] = test_df_t['popularity'].fillna(0)
                 test_df_t['frequency'] = test_df_t['personal_popular']
                 test_df_t['personal_popular'] = test_df_t['personal_popular'] + test_df_t['popularity']
 

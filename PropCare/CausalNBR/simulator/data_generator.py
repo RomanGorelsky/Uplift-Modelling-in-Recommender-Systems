@@ -6,7 +6,7 @@ from recommender import RandomBase, PopularBase, NeighborBase, LMF
 class DataGenerator():
     def __init__(self, rate_prior=0.1,
                  colname_user='idx_user', colname_item='idx_item', colname_title = "item_title",
-                 colname_outcome='outcome',
+                 colname_price = 'item_price', colname_outcome='outcome',
                  colname_outcome_treated='outcome_T', colname_outcome_control='outcome_C',
                  colname_treatment='treated', colname_propensity='propensity',
                  colname_effect='causal_effect', colname_expectation='causal_effect_expectation',
@@ -16,6 +16,7 @@ class DataGenerator():
         self.colname_user = colname_user
         self.colname_item = colname_item
         self.colname_title = colname_title
+        self.colname_price = colname_price
         self.colname_outcome = colname_outcome
         self.colname_outcome_treated = colname_outcome_treated
         self.colname_outcome_control = colname_outcome_control
@@ -178,12 +179,13 @@ class DataGenerator():
     def get_observation(self, with_additional_info=False):
         if with_additional_info:
             return self.df_data.loc[:,
-                   [self.colname_user, self.colname_item, self.colname_title, self.colname_treatment, 
+                   [self.colname_user, self.colname_item, self.colname_title, self.colname_price, 
+                    self.colname_treatment, 
                     self.colname_outcome, self.colname_propensity,
                     self.colname_effect, self.colname_expectation, self.colname_prediction,
                     'prob_outcome_treated', 'prob_outcome_control', 'prob_outcome']]
         else:
-            return self.df_data.loc[:, [self.colname_user, self.colname_item, self.colname_title, self.colname_treatment, self.colname_outcome, self.colname_propensity, self.colname_effect]]
+            return self.df_data.loc[:, [self.colname_user, self.colname_item, self.colname_title, self.colname_price, self.colname_treatment, self.colname_outcome, self.colname_propensity, self.colname_effect]]
 
     def get_groundtruth(self):
         return self.df_data.loc[:, [self.colname_user, self.colname_item, self.colname_effect]]
