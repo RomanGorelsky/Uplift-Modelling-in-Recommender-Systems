@@ -12,7 +12,8 @@ class Recommender(object):
     def __init__(self, num_users, num_items,
                  colname_user = 'idx_user', colname_item = 'idx_item',
                  colname_outcome = 'outcome', colname_prediction='pred',
-                 colname_treatment='treated', colname_propensity='propensity'):
+                 colname_treatment='treated', colname_propensity='propensity', 
+                 colname_frequency = 'frequency'):
         super().__init__()
 
         self.num_users = num_users
@@ -23,6 +24,7 @@ class Recommender(object):
         self.colname_prediction = colname_prediction
         self.colname_treatment = colname_treatment
         self.colname_propensity = colname_propensity
+        self.colname_frequency = colname_frequency
 
     def train(self, df, iter=100):
         pass
@@ -551,11 +553,14 @@ class DLMF(Recommender):
                  coeff_T = 1.0, coeff_C = 1.0,
                  colname_user='idx_user', colname_item='idx_item',
                  colname_outcome='outcome', colname_prediction='pred',
-                 colname_treatment='treated', colname_propensity='propensity'):
+                 colname_treatment='treated', colname_propensity='propensity', 
+                 colname_frequency = 'frequency'):
         super().__init__(num_users=num_users, num_items=num_items,
                          colname_user=colname_user, colname_item=colname_item,
                          colname_outcome=colname_outcome, colname_prediction=colname_prediction,
-                         colname_treatment=colname_treatment, colname_propensity=colname_propensity)
+                         colname_treatment=colname_treatment, colname_propensity=colname_propensity, 
+                         colname_frequency = colname_frequency)
+        
         self.metric = metric
         self.capping_T = capping_T
         self.capping_C = capping_C
@@ -581,7 +586,7 @@ class DLMF(Recommender):
             self.global_bias = 0.0
 
 
-    def train(self, df, iter = 100):
+    def train(self, df, path, iter = 100):
         df_train = df.loc[df.loc[:, self.colname_outcome] > 0, :] # need only positive outcomes
         if self.only_treated: # train only with treated positive (DLTO)
             df_train = df_train.loc[df_train.loc[:, self.colname_treatment] > 0, :]
@@ -674,14 +679,265 @@ class DLMF(Recommender):
                             self.learn_rate * (coeff - self.reg_bias * self.item_biases[i])
                         self.item_biases[j] += \
                             self.learn_rate * (-coeff - self.reg_bias_j * self.item_biases[j])
-
+                        
                     current_iter += 1
+
                     if current_iter % 100000 == 0:
-                        print(str(current_iter)+"/"+str(iter))
-                    if current_iter >= iter:
-                        with open("dlmf_weights.pkl", "wb") as f:
+                        print(str(current_iter) + "/" + str(iter))
+                    if current_iter % 10000000 == 0:
+                        with open(path + "dlmf_weights.pkl", "wb") as f:
                             pickle.dump(self.__dict__, f)
                             print("DLMF weights saved.")
+                    if current_iter >= iter:
+                        return err / iter
+
+    def predict(self, df):
+        users = df[self.colname_user].values
+        items = df[self.colname_item].values
+        pred = np.zeros(len(df))
+        for n in np.arange(len(df)):
+            pred[n] = np.inner(self.user_factors[users[n], :], self.item_factors[items[n], :])
+            if self.with_bias:
+                pred[n] += self.item_biases[items[n]]
+                pred[n] += self.user_biases[users[n]]
+                pred[n] += self.global_bias
+
+        return pred
+    
+    def predict_freq(self, df):
+        users = df[self.colname_user].values
+        items = df[self.colname_item].values
+        frequencies = df[self.colname_frequency].values
+        pred = np.zeros(len(df))
+        for n in np.arange(len(df)):
+            pred[n] = np.inner(self.user_factors[users[n], :], self.item_factors[items[n], :]) + frequencies[n]
+            if self.with_bias:
+                pred[n] += self.item_biases[items[n]]
+                pred[n] += self.user_biases[users[n]]
+                pred[n] += self.global_bias
+
+        return pred
+    
+    def predict_frequ(self, df):
+        users = df[self.colname_user].values
+        items = df[self.colname_item].values
+        frequencies = df[self.colname_frequency].values
+        pred = np.zeros(len(df))
+        for n in np.arange(len(df)):
+            pred[n] = np.inner(self.user_factors[users[n], :] + frequencies[n], self.item_factors[items[n], :])
+            if self.with_bias:
+                pred[n] += self.item_biases[items[n]]
+                pred[n] += self.user_biases[users[n]]
+                pred[n] += self.global_bias
+
+        return pred
+    
+    def predict_freqi(self, df):
+        users = df[self.colname_user].values
+        items = df[self.colname_item].values
+        frequencies = df[self.colname_frequency].values
+        pred = np.zeros(len(df))
+        for n in np.arange(len(df)):
+            pred[n] = np.inner(self.user_factors[users[n], :], self.item_factors[items[n], :] + frequencies[n])
+            if self.with_bias:
+                pred[n] += self.item_biases[items[n]]
+                pred[n] += self.user_biases[users[n]]
+                pred[n] += self.global_bias
+
+        return pred
+    
+class DLMF_Mod(Recommender):
+    def __init__(self, num_users, num_items,
+                 metric='AR_logi', capping_T=0.01, capping_C=0.01,
+                 dim_factor=200, with_bias=False, with_IPS=True,
+                 only_treated=False,
+                 learn_rate = 0.01, reg_factor = 0.01, reg_bias = 0.01,
+                 sd_init = 0.1, reg_factor_j = 0.01, reg_bias_j = 0.01,
+                 coeff_T = 1.0, coeff_C = 1.0,
+                 colname_user='idx_user', colname_item='idx_item',
+                 colname_outcome='outcome', colname_prediction='pred',
+                 colname_treatment='treated', colname_propensity='propensity', 
+                 colname_relevance='relevance', colname_relevant='relevant'):
+        super().__init__(num_users=num_users, num_items=num_items,
+                         colname_user=colname_user, colname_item=colname_item,
+                         colname_outcome=colname_outcome, colname_prediction=colname_prediction,
+                         colname_treatment=colname_treatment, colname_propensity=colname_propensity)
+        self.colname_relevance = colname_relevance
+        self.colname_relevant = colname_relevant
+        self.metric = metric
+        self.capping_T = capping_T
+        self.capping_C = capping_C
+        self.with_IPS = with_IPS
+        self.dim_factor = dim_factor
+        self.rng = RandomState(seed=None)
+        self.with_bias = with_bias
+        self.coeff_T = coeff_T
+        self.coeff_C = coeff_C
+        self.learn_rate = learn_rate
+        self.reg_bias = reg_factor
+        self.reg_factor = reg_factor
+        self.reg_bias_j = reg_factor
+        self.reg_factor_j = reg_factor
+        self.sd_init = sd_init
+        self.only_treated = only_treated
+
+        self.user_factors = self.rng.normal(loc=0, scale=self.sd_init, size=(self.num_users, self.dim_factor))
+        self.item_factors = self.rng.normal(loc=0, scale=self.sd_init, size=(self.num_items, self.dim_factor))
+        if self.with_bias:
+            self.user_biases = np.zeros(self.num_users)
+            self.item_biases = np.zeros(self.num_items)
+            self.global_bias = 0.0
+
+    def train(self, df, path, phi, iter = 100):
+        df_train = df.loc[df.loc[:, self.colname_outcome] > 0, :] # need only positive outcomes
+
+        if self.only_treated: # train only with treated positive (DLTO)
+            df_train = df_train.loc[df_train.loc[:, self.colname_treatment] > 0, :]
+
+        if self.capping_T is not None:
+            bool_cap = np.logical_and(df_train.loc[:, self.colname_propensity] < self.capping_T, df_train.loc[:, self.colname_treatment] == 1)
+            if np.sum(bool_cap) > 0:
+                df_train.loc[bool_cap, self.colname_propensity] = self.capping_T
+
+            bool_cap = np.logical_and(df_train.loc[:, self.colname_relevance] < self.capping_T, df_train.loc[:, self.colname_relevant] == 1)
+            if np.sum(bool_cap) > 0:
+                df_train.loc[bool_cap, self.colname_relevance] = self.capping_T
+
+        if self.capping_C is not None:      
+            bool_cap = np.logical_and(df_train.loc[:, self.colname_propensity] > 1 - self.capping_C, df_train.loc[:, self.colname_treatment] == 0)
+            if np.sum(bool_cap) > 0:
+                df_train.loc[bool_cap, self.colname_propensity] = 1 - self.capping_C
+
+            bool_cap = np.logical_and(df_train.loc[:, self.colname_relevance] > 1 - self.capping_C, df_train.loc[:, self.colname_relevant] == 0)
+            if np.sum(bool_cap) > 0:
+                df_train.loc[bool_cap, self.colname_relevant] = 1 - self.capping_C
+
+        if self.with_IPS: # point estimate of individual treatment effect (ITE) <- for binary outcome abs(ITE) = IPS
+            df_train.loc[:, 'ITET'] =  df_train.loc[:, self.colname_treatment] * df_train.loc[:, self.colname_outcome]/df_train.loc[:, self.colname_propensity] - \
+                                      (1 - df_train.loc[:, self.colname_treatment]) * df_train.loc[:, self.colname_outcome]/(1 - df_train.loc[:, self.colname_propensity])
+            zt_y_1 = df_train.loc[:, self.colname_treatment] * df_train.loc[:, self.colname_outcome]
+            zt_y_1 = zt_y_1.values
+            zt_y_0 = (1 - df_train.loc[:, self.colname_treatment]) * df_train.loc[:, self.colname_outcome]
+            zt_y_0 = zt_y_0.values
+
+            df_train.loc[:, 'ITER'] =  df_train.loc[:, self.colname_relevant] * df_train.loc[:, self.colname_outcome]/df_train.loc[:, self.colname_relevance] - \
+                                      (1 - df_train.loc[:, self.colname_relevant]) * df_train.loc[:, self.colname_outcome]/(1 - df_train.loc[:, self.colname_relevance])
+            zr_y_1 = df_train.loc[:, self.colname_relevant] * df_train.loc[:, self.colname_outcome]
+            zr_y_1 = zr_y_1.values
+            zr_y_0 = (1 - df_train.loc[:, self.colname_relevant]) * df_train.loc[:, self.colname_outcome]
+            zr_y_0 = zr_y_0.values
+
+        else:
+            df_train.loc[:, 'ITET'] =  df_train.loc[:, self.colname_treatment] * df_train.loc[:, self.colname_outcome]  - \
+                                      (1 - df_train.loc[:, self.colname_treatment]) * df_train.loc[:, self.colname_outcome]
+            
+            df_train.loc[:, 'ITER'] =  df_train.loc[:, self.colname_relevant] * df_train.loc[:, self.colname_outcome]  - \
+                                      (1 - df_train.loc[:, self.colname_relevant]) * df_train.loc[:, self.colname_outcome]
+
+        err = 0
+        current_iter = 0
+
+        while True:
+            df_train = df_train.sample(frac=1)
+            users = df_train.loc[:, self.colname_user].values
+            items = df_train.loc[:, self.colname_item].values
+            ITET = df_train.loc[:, 'ITET'].values
+            ITER = df_train.loc[:, 'ITER'].values
+
+            if self.metric in ['AR_logi', 'AR_sig', 'AR_hinge']:
+                for n in np.arange(len(df_train)):
+
+                    u = users[n]
+                    i = items[n]
+
+                    while True:
+                        j = random.randrange(self.num_items)
+                        if i != j:
+                            break
+
+                    u_factor = self.user_factors[u, :]
+                    i_factor = self.item_factors[i, :]
+                    j_factor = self.item_factors[j, :]
+
+                    diff_rating = np.sum(u_factor * (i_factor - j_factor))
+
+                    if self.with_bias:
+                        diff_rating += (self.item_biases[i] - self.item_biases[j])
+
+                    if self.metric == 'AR_logi':
+                        if ITET[n] >= 0:
+                            coeff_t = ITET[n] * self.coeff_T * self.func_sigmoid(-self.coeff_T * diff_rating) # Z=1, Y=1
+                            const_value = zt_y_1[n] * self.coeff_T * self.func_sigmoid(-self.coeff_T * diff_rating)
+                        else:
+                            coeff_t = ITET[n] * self.coeff_C * self.func_sigmoid(self.coeff_C * diff_rating) # Z=0, Y=1
+                            const_value = zt_y_0[n] * self.coeff_C * self.func_sigmoid(self.coeff_C * diff_rating)
+                        
+                        if ITER[n] >= 0:
+                            coeff_r = ITER[n] * self.coeff_T * self.func_sigmoid(-self.coeff_T * diff_rating) # Z=1, Y=1
+                            const_value = zr_y_1[n] * self.coeff_T * self.func_sigmoid(-self.coeff_T * diff_rating)
+                        else:
+                            coeff_r = ITER[n] * self.coeff_C * self.func_sigmoid(self.coeff_C * diff_rating) # Z=0, Y=1
+                            const_value = zr_y_0[n] * self.coeff_C * self.func_sigmoid(self.coeff_C * diff_rating)
+
+                    elif self.metric == 'AR_sig':
+                        if ITET[n] >= 0:
+                            coeff_t = ITET[n] * self.coeff_T * self.func_sigmoid(self.coeff_T * diff_rating) * self.func_sigmoid(-self.coeff_T * diff_rating)
+                        else:
+                            coeff_t = ITET[n] * self.coeff_C * self.func_sigmoid(self.coeff_C * diff_rating) * self.func_sigmoid(-self.coeff_C * diff_rating)
+                        
+                        if ITER[n] >= 0:
+                            coeff_r = ITER[n] * self.coeff_T * self.func_sigmoid(self.coeff_T * diff_rating) * self.func_sigmoid(-self.coeff_T * diff_rating)
+                        else:
+                            coeff_r = ITER[n] * self.coeff_C * self.func_sigmoid(self.coeff_C * diff_rating) * self.func_sigmoid(-self.coeff_C * diff_rating)
+
+                    elif self.metric == 'AR_hinge':
+                        if ITET[n] >= 0:
+                            if self.coeff_T > 0 and diff_rating < 1.0/self.coeff_T:
+                                coeff_t = ITET[n] * self.coeff_T 
+                            else:
+                                coeff_t = 0.0
+                        else:
+                            if self.coeff_C > 0 and diff_rating > -1.0/self.coeff_C:
+                                coeff_t = ITET[n] * self.coeff_C
+                            else:
+                                coeff_t = 0.0
+                        
+                        if ITER[n] >= 0:
+                            if self.coeff_T > 0 and diff_rating < 1.0/self.coeff_T:
+                                coeff_r = ITER[n] * self.coeff_T 
+                            else:
+                                coeff_r = 0.0
+                        else:
+                            if self.coeff_C > 0 and diff_rating > -1.0/self.coeff_C:
+                                coeff_r = ITER[n] * self.coeff_C
+                            else:
+                                coeff_r = 0.0
+
+                    coeff = coeff_t + phi * coeff_r
+                    err += np.abs(coeff)
+
+                    self.user_factors[u, :] += \
+                        self.learn_rate * (coeff * (i_factor - j_factor) - self.reg_factor * u_factor)
+                    self.item_factors[i, :] += \
+                        self.learn_rate * (coeff * u_factor - self.reg_factor * i_factor)
+                    self.item_factors[j, :] += \
+                        self.learn_rate * (-coeff * u_factor - self.reg_factor_j * j_factor)
+
+                    if self.with_bias:
+                        self.item_biases[i] += \
+                            self.learn_rate * (coeff - self.reg_bias * self.item_biases[i])
+                        self.item_biases[j] += \
+                            self.learn_rate * (-coeff - self.reg_bias_j * self.item_biases[j])
+
+                    current_iter += 1
+
+                    if current_iter % 100000 == 0:
+                        print(str(current_iter) + "/" + str(iter))
+                    if current_iter % 10000000 == 0:
+                        with open(path + "dlmf_weights.pkl", "wb") as f:
+                            pickle.dump(self.__dict__, f)
+                            print("DLMF weights saved.")
+                    if current_iter >= iter:
                         return err / iter
 
     def predict(self, df):

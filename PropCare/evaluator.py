@@ -5,10 +5,12 @@ from scipy.stats import spearmanr
 class Evaluator():
     def __init__(self,
                  colname_user='idx_user', colname_item='idx_item', colname_time='idx_time',
-                 colname_outcome='outcome', colname_prediction='pred',
+                 colname_outcome='outcome', colname_prediction='pred', colname_prediction_freq='pred_freq',
+                 colname_prediction_freqi='pred_freqi', colname_prediction_frequ='pred_frequ',
                  colname_treatment='treated', colname_propensity='propensity',
                  colname_effect='causal_effect', colname_estimate='causal_effect_estimate',
-                 colname_relavance = 'relevance_estimate', colname_popularity = 'popularity'):
+                 colname_relavance = 'relevance_estimate', colname_popularity = 'popularity', 
+                 colname_personal_popularity = 'personal_popular'):
 
 
         self.rank_k = None
@@ -18,11 +20,15 @@ class Evaluator():
         self.colname_outcome = colname_outcome
         self.colname_relavance = colname_relavance
         self.colname_prediction = colname_prediction
+        self.colname_prediction_freq = colname_prediction_freq
+        self.colname_prediction_freqi = colname_prediction_freqi
+        self.colname_prediction_frequ = colname_prediction_frequ
         self.colname_treatment = colname_treatment
         self.colname_propensity = colname_propensity
         self.colname_effect = colname_effect
         self.colname_estimate = colname_estimate
         self.colname_popularity = colname_popularity
+        self.colname_personal_popularity = colname_personal_popularity
 
     def get_ranking(self, df, sort_by = 'pred', num_rec=10):
         df = df.sort_values(by=[self.colname_user, sort_by], ascending=False)
@@ -116,11 +122,23 @@ class Evaluator():
         elif measure == 'CPrecS':
             df_ranking = self.get_ranking(df, num_rec=num_rec)
             return np.nanmean(df_ranking.loc[:, self.colname_effect].values)
+        elif measure == 'CPrecSF':
+            df_ranking = self.get_ranking(df, sort_by=self.colname_prediction_freq, num_rec=num_rec)
+            return np.nanmean(df_ranking.loc[:, self.colname_effect].values)
+        elif measure == 'CPrecSFI':
+            df_ranking = self.get_ranking(df, sort_by=self.colname_prediction_freqi, num_rec=num_rec)
+            return np.nanmean(df_ranking.loc[:, self.colname_effect].values)
+        elif measure == 'CPrecSFU':
+            df_ranking = self.get_ranking(df, sort_by=self.colname_prediction_frequ, num_rec=num_rec)
+            return np.nanmean(df_ranking.loc[:, self.colname_effect].values)
         elif measure == 'CPrecR':
             df_ranking = self.get_ranking(df, sort_by=self.colname_relavance, num_rec=num_rec)
             return np.nanmean(df_ranking.loc[:, self.colname_effect].values)
         elif measure == 'CPrecP':
             df_ranking = self.get_ranking(df, sort_by=self.colname_popularity, num_rec=num_rec)
+            return np.nanmean(df_ranking.loc[:, self.colname_effect].values) 
+        elif measure == 'CPrecPP':
+            df_ranking = self.get_ranking(df, sort_by=self.colname_personal_popularity, num_rec=num_rec)
             return np.nanmean(df_ranking.loc[:, self.colname_effect].values) 
         elif measure == 'CPrecIPS':
             df_ranking = self.get_ranking(df, num_rec=num_rec)
@@ -131,12 +149,28 @@ class Evaluator():
             df_ranking = self.get_sorted(df)
             return float(np.nanmean(df_ranking.groupby(self.colname_user)[self.colname_effect]
                                     .apply(lambda x: self.dcg_at_k(x))))
+        elif measure == 'CDCGSF':
+            df_ranking = self.get_sorted(df, sort_by=self.colname_prediction_freq)
+            return float(np.nanmean(df_ranking.groupby(self.colname_user)[self.colname_effect]
+                                    .apply(lambda x: self.dcg_at_k(x))))
+        elif measure == 'CDCGSFI':
+            df_ranking = self.get_sorted(df, sort_by=self.colname_prediction_freqi)
+            return float(np.nanmean(df_ranking.groupby(self.colname_user)[self.colname_effect]
+                                    .apply(lambda x: self.dcg_at_k(x))))
+        elif measure == 'CDCGSFU':
+            df_ranking = self.get_sorted(df, sort_by=self.colname_prediction_frequ)
+            return float(np.nanmean(df_ranking.groupby(self.colname_user)[self.colname_effect]
+                                    .apply(lambda x: self.dcg_at_k(x))))
         elif measure == 'CDCGR':
             df_ranking = self.get_sorted(df, sort_by=self.colname_relavance)
             return float(np.nanmean(df_ranking.groupby(self.colname_user)[self.colname_effect]
                                     .apply(lambda x: self.dcg_at_k(x))))
         elif measure == 'CDCGP':
             df_ranking = self.get_sorted(df, sort_by=self.colname_popularity)
+            return float(np.nanmean(df_ranking.groupby(self.colname_user)[self.colname_effect]
+                                    .apply(lambda x: self.dcg_at_k(x))))
+        elif measure == 'CDCGPP':
+            df_ranking = self.get_sorted(df, sort_by=self.colname_personal_popularity)
             return float(np.nanmean(df_ranking.groupby(self.colname_user)[self.colname_effect]
                                     .apply(lambda x: self.dcg_at_k(x))))
         elif measure == 'CDCGIPS':
@@ -170,6 +204,21 @@ class Evaluator():
                 lambda x: self.recall_at_k(x, sort_by=self.colname_prediction)
             )
             return float(np.nanmean(recall_scores))
+        elif measure == 'RecallSF':
+            recall_scores = df.groupby(self.colname_user).apply(
+                lambda x: self.recall_at_k(x, sort_by=self.colname_prediction_freq)
+            )
+            return float(np.nanmean(recall_scores))
+        elif measure == 'RecallSFI':
+            recall_scores = df.groupby(self.colname_user).apply(
+                lambda x: self.recall_at_k(x, sort_by=self.colname_prediction_freqi)
+            )
+            return float(np.nanmean(recall_scores))
+        elif measure == 'RecallSFU':
+            recall_scores = df.groupby(self.colname_user).apply(
+                lambda x: self.recall_at_k(x, sort_by=self.colname_prediction_frequ)
+            )
+            return float(np.nanmean(recall_scores))
         elif measure == 'RecallR':
             recall_scores = df.groupby(self.colname_user).apply(
                 lambda x: self.recall_at_k(x, sort_by=self.colname_relavance)
@@ -180,9 +229,29 @@ class Evaluator():
                 lambda x: self.recall_at_k(x, sort_by=self.colname_popularity)
             )
             return float(np.nanmean(recall_scores))
+        elif measure == 'RecallPP':
+            recall_scores = df.groupby(self.colname_user).apply(
+                lambda x: self.recall_at_k(x, sort_by=self.colname_personal_popularity)
+            )
+            return float(np.nanmean(recall_scores))
         elif measure == 'PrecisionS':
             precision_scores = df.groupby(self.colname_user).apply(
                 lambda x: self.precision_at_k(x, sort_by=self.colname_prediction)
+            )
+            return float(np.nanmean(precision_scores))
+        elif measure == 'PrecisionSF':
+            precision_scores = df.groupby(self.colname_user).apply(
+                lambda x: self.precision_at_k(x, sort_by=self.colname_prediction_freq)
+            )
+            return float(np.nanmean(precision_scores))
+        elif measure == 'PrecisionSFI':
+            precision_scores = df.groupby(self.colname_user).apply(
+                lambda x: self.precision_at_k(x, sort_by=self.colname_prediction_freqi)
+            )
+            return float(np.nanmean(precision_scores))
+        elif measure == 'PrecisionSFU':
+            precision_scores = df.groupby(self.colname_user).apply(
+                lambda x: self.precision_at_k(x, sort_by=self.colname_prediction_frequ)
             )
             return float(np.nanmean(precision_scores))
         elif measure == 'PrecisionR':
@@ -195,9 +264,29 @@ class Evaluator():
                 lambda x: self.precision_at_k(x, sort_by=self.colname_popularity)
             )
             return float(np.nanmean(precision_scores))
+        elif measure == 'PrecisionPP':
+            precision_scores = df.groupby(self.colname_user).apply(
+                lambda x: self.precision_at_k(x, sort_by=self.colname_personal_popularity)
+            )
+            return float(np.nanmean(precision_scores))
         elif measure == 'NDCGS':
             ndcg_scores = df.groupby(self.colname_user).apply(
                 lambda x: self.ndcg_at_k(x, sort_by=self.colname_prediction, label_col=self.colname_outcome)
+            )
+            return float(np.nanmean(ndcg_scores))
+        elif measure == 'NDCGSF':
+            ndcg_scores = df.groupby(self.colname_user).apply(
+                lambda x: self.ndcg_at_k(x, sort_by=self.colname_prediction_freq, label_col=self.colname_outcome)
+            )
+            return float(np.nanmean(ndcg_scores))
+        elif measure == 'NDCGSFI':
+            ndcg_scores = df.groupby(self.colname_user).apply(
+                lambda x: self.ndcg_at_k(x, sort_by=self.colname_prediction_freqi, label_col=self.colname_outcome)
+            )
+            return float(np.nanmean(ndcg_scores))
+        elif measure == 'NDCGSFU':
+            ndcg_scores = df.groupby(self.colname_user).apply(
+                lambda x: self.ndcg_at_k(x, sort_by=self.colname_prediction_frequ, label_col=self.colname_outcome)
             )
             return float(np.nanmean(ndcg_scores))
         elif measure == 'NDCGR':
@@ -208,6 +297,11 @@ class Evaluator():
         elif measure == 'NDCGP':
             ndcg_scores = df.groupby(self.colname_user).apply(
                 lambda x: self.ndcg_at_k(x, sort_by=self.colname_popularity, label_col=self.colname_outcome)
+            )
+            return float(np.nanmean(ndcg_scores))
+        elif measure == 'NDCGPP':
+            ndcg_scores = df.groupby(self.colname_user).apply(
+                lambda x: self.ndcg_at_k(x, sort_by=self.colname_personal_popularity, label_col=self.colname_outcome)
             )
             return float(np.nanmean(ndcg_scores))
         else:
