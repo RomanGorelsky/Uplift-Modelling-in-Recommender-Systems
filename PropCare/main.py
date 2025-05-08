@@ -206,12 +206,12 @@ def main(flag=flag):
             cap = 0.03
             lr = 0.001
             rf = 0.01
-            itr = 100e6
+            itr = 20e6
         if flag.dataset[-1] == "p":
             lr = 0.001
             cap = 0.5
             rf = 0.001
-            itr = 100e6
+            itr = 70e6
         else:
             lr = 0.001
             cap = 0.3
