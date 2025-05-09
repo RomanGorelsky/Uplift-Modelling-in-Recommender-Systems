@@ -39,14 +39,14 @@ class Evaluator():
         df = df.sort_values(by=[self.colname_user, sort_by], ascending=False)
         return df
     
-    def get_dataframes(self, df, path):
-        df = df.sort_values(by=[self.colname_user, self.colname_prediction], ascending=False)
+    def get_dataframes(self, df, path, sort_by):
+        df = df.sort_values(by=[self.colname_user, sort_by], ascending=False)
         df_ranking_10 = df.groupby(self.colname_user).head(10)
         df_ranking_100 = df.groupby(self.colname_user).head(100)
 
-        df.to_csv(path + 'df_sorted.csv')
-        df_ranking_10.to_csv(path + 'df_ranking_10.csv')
-        df_ranking_100.to_csv(path + 'df_ranking_100.csv') 
+        df.to_csv(path + sort_by + '/df_sorted.csv')
+        df_ranking_10.to_csv(path + sort_by + '/df_ranking_10.csv')
+        df_ranking_100.to_csv(path + sort_by + '/df_ranking_100.csv') 
 
     def capping(self, df, cap_prop=None):
         if cap_prop is not None and cap_prop > 0:

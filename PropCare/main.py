@@ -154,19 +154,26 @@ def main(flag=flag):
         # cs = np.linspace(0.1, 0.9, 100)
 
         p_pred = None
+        r_pred = None
 
         for u, i in train_data.batch(5000):
-            _, p_batch, _, _ = model((u, i), training=False)
+            _, p_batch, r_batch, _ = model((u, i), training=False)
             if p_pred is None:
                 p_pred = p_batch
+                r_pred = r_batch
             else:
                 p_pred = tf.concat((p_pred, p_batch), axis=0)
+                r_pred = tf.concat((r_pred, r_batch), axis=0)
 
         p_pred = p_pred.numpy()
         # p_pred_true = np.squeeze(train_df["propensity"].to_numpy())
 
         p_pred_t = opt_scale * ((p_pred - np.mean(p_pred))/ (np.std(p_pred)))
         p_pred_t = np.clip((p_pred_t + opt_add), 0.0, 1.0)
+
+        r_pred = r_pred.numpy()
+        r_pred_t = opt_scale * ((r_pred - np.mean(r_pred))/ (np.std(r_pred)))
+        r_pred_t = np.clip((r_pred_t + opt_add), 0.0, 1.0)
 
         # t_pred_t = np.where(p_pred_t >= opt_epsilon, 1.0, 0.0)
         # max_f = f1_score(train_df['treated'], t_pred_t)
@@ -213,36 +220,41 @@ def main(flag=flag):
 
             if flag.dataset[-1] == "d":
                 opt_c = 0.9
+                lr = 0.001
+                cap = 0.03
+                rf = 0.01
+                itr = 20e6
+                phi = 0.1
+                flag.rel_thresh = 0.5
             else:
                 opt_c = 0.8
-        elif flag.dataset == "ml":
-            flag.thres = 0.65
-
-        t_pred = np.where(p_pred_t >= flag.thres, 1.0, 0.0)
-
-        if flag.dataset == "d" or "p":
+                lr = 0.001
+                cap = 0.5
+                rf = 0.001
+                itr = 70e6
+                phi = 0.1
+                flag.rel_thresh = 0.6
+            
             p_pred = p_pred * opt_c
-        if flag.dataset == "ml":
-            p_pred = p_pred * 0.2
-        
-        train_df["propensity"] = np.clip(p_pred, 0.0001, 0.9999)
-        train_df["treated"] = t_pred
 
-        if flag.dataset[-1] == "d":
-            cap = 0.03
-            lr = 0.001
-            rf = 0.01
-            itr = 20e6
-        if flag.dataset[-1] == "p":
-            lr = 0.001
-            cap = 0.5
-            rf = 0.001
-            itr = 70e6
-        elif flag.dataset[-1] == "l":
+        elif flag.dataset == "ml":
+            opt_c = 0.2
+            flag.thres = 0.65
             lr = 0.001
             cap = 0.3
             rf = 0.1
             itr = 100e6
+            phi = 0.1
+            flag.rel_thresh = 0.7
+            p_pred = p_pred * opt_c
+
+        t_pred = np.where(p_pred_t >= flag.thres, 1.0, 0.0)
+        rel_pred = np.where(r_pred_t >= flag.rel_thresh, 1.0, 0.0)
+        
+        train_df["propensity"] = np.clip(p_pred, 0.0001, 0.9999)
+        train_df["relevance"] = np.clip(r_pred, 0.0001, 0.9999)
+        train_df["treated"] = t_pred
+        train_df["relevant"] = rel_pred
 
         if flag.rec_type == "orig":
             recommender = DLMF(num_users, num_items, capping_T = cap, 
@@ -253,13 +265,22 @@ def main(flag=flag):
                                capping_C = cap, learn_rate = lr, reg_factor = rf)
         
         if flag.rec_train:
-            recommender.train(train_df, plotpath + flag.rec_add, iter=itr)
+            if flag.rec_type == "orig":
+                recommender.train(train_df, plotpath + flag.rec_add, iter=itr)
+            elif flag.rec_type == "mod":
+                recommender.train(train_df, plotpath + flag.rec_add, phi, iter=itr)
         
         else:
-            with open(plotpath + flag.rec_add + "dlmf_weights.pkl", "rb") as f:
-                saved_state = pickle.load(f)
-            recommender.__dict__.update(saved_state)
-            print("DLMF weights loaded successfully!")
+            if flag.rec_type == "orig":
+                with open(plotpath + flag.rec_add + "dlmf_weights.pkl", "rb") as f:
+                    saved_state = pickle.load(f)
+                recommender.__dict__.update(saved_state)
+                print("DLMF weights loaded successfully!")
+            elif flag.rec_type == "mod":
+                with open(plotpath + flag.rec_add + "dlmf_mod_weights.pkl", "rb") as f:
+                    saved_state = pickle.load(f)
+                recommender.__dict__.update(saved_state)
+                print("DLMF_Mod weights loaded successfully!")
 
         cp10_tmp_list_pred = []
         cp100_tmp_list_pred = []
@@ -457,7 +478,8 @@ def main(flag=flag):
                 print(f"Average Rank Position Difference (frequ): {pos_diff_frequ:.4f}")
 
                 if t + 1 == num_times:
-                    evaluator.get_dataframes(test_df_t, plotpath + flag.rec_add)
+                    evaluator.get_dataframes(test_df_t, plotpath + flag.rec_add, "pred")
+                    evaluator.get_dataframes(test_df_t, plotpath + flag.rec_add, "pred_freq")
         else:
             for t in [0]:
                 test_df_t = test_df[test_df["idx_time"] == t]
@@ -593,7 +615,8 @@ def main(flag=flag):
                 print(f"Spearman Rho (frequ): {spearman_score_frequ:.4f}")
                 print(f"Average Rank Position Difference (frequ): {pos_diff_frequ:.4f}")
 
-                evaluator.get_dataframes(test_df_t, plotpath + flag.add)
+                evaluator.get_dataframes(test_df_t, plotpath + flag.rec_add, "pred")
+                evaluator.get_dataframes(test_df_t, plotpath + flag.rec_add, "pred_freq")
 
         cp10_pred = np.mean(cp10_tmp_list_pred)
         cp100_pred = np.mean(cp100_tmp_list_pred)

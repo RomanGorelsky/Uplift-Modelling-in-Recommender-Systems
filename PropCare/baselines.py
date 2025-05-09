@@ -757,11 +757,13 @@ class DLMF_Mod(Recommender):
                  colname_user='idx_user', colname_item='idx_item',
                  colname_outcome='outcome', colname_prediction='pred',
                  colname_treatment='treated', colname_propensity='propensity', 
-                 colname_relevance='relevance', colname_relevant='relevant'):
+                 colname_relevance='relevance', colname_relevant='relevant', 
+                 colname_frequency = 'frequency'):
         super().__init__(num_users=num_users, num_items=num_items,
                          colname_user=colname_user, colname_item=colname_item,
                          colname_outcome=colname_outcome, colname_prediction=colname_prediction,
-                         colname_treatment=colname_treatment, colname_propensity=colname_propensity)
+                         colname_treatment=colname_treatment, colname_propensity=colname_propensity, 
+                         colname_frequency = colname_frequency)
         self.colname_relevance = colname_relevance
         self.colname_relevant = colname_relevant
         self.metric = metric
@@ -934,9 +936,9 @@ class DLMF_Mod(Recommender):
                     if current_iter % 100000 == 0:
                         print(str(current_iter) + "/" + str(iter))
                     if current_iter % 10000000 == 0:
-                        with open(path + "dlmf_weights.pkl", "wb") as f:
+                        with open(path + "dlmf_mod_weights.pkl", "wb") as f:
                             pickle.dump(self.__dict__, f)
-                            print("DLMF weights saved.")
+                            print("DLMF_Mod weights saved.")
                     if current_iter >= iter:
                         return err / iter
 
@@ -951,7 +953,48 @@ class DLMF_Mod(Recommender):
                 pred[n] += self.user_biases[users[n]]
                 pred[n] += self.global_bias
 
-        # pred = 1 / (1 + np.exp(-pred))
+        return pred
+    
+    def predict_freq(self, df):
+        users = df[self.colname_user].values
+        items = df[self.colname_item].values
+        frequencies = df[self.colname_frequency].values
+        pred = np.zeros(len(df))
+        for n in np.arange(len(df)):
+            pred[n] = np.inner(self.user_factors[users[n], :], self.item_factors[items[n], :]) + frequencies[n]
+            if self.with_bias:
+                pred[n] += self.item_biases[items[n]]
+                pred[n] += self.user_biases[users[n]]
+                pred[n] += self.global_bias
+
+        return pred
+    
+    def predict_frequ(self, df):
+        users = df[self.colname_user].values
+        items = df[self.colname_item].values
+        frequencies = df[self.colname_frequency].values
+        pred = np.zeros(len(df))
+        for n in np.arange(len(df)):
+            pred[n] = np.inner(self.user_factors[users[n], :] + frequencies[n], self.item_factors[items[n], :])
+            if self.with_bias:
+                pred[n] += self.item_biases[items[n]]
+                pred[n] += self.user_biases[users[n]]
+                pred[n] += self.global_bias
+
+        return pred
+    
+    def predict_freqi(self, df):
+        users = df[self.colname_user].values
+        items = df[self.colname_item].values
+        frequencies = df[self.colname_frequency].values
+        pred = np.zeros(len(df))
+        for n in np.arange(len(df)):
+            pred[n] = np.inner(self.user_factors[users[n], :], self.item_factors[items[n], :] + frequencies[n])
+            if self.with_bias:
+                pred[n] += self.item_biases[items[n]]
+                pred[n] += self.user_biases[users[n]]
+                pred[n] += self.global_bias
+
         return pred
 
 
