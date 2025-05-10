@@ -236,6 +236,7 @@ def main(flag=flag):
                 flag.rel_thresh = 0.6
             
             p_pred = p_pred * opt_c
+            r_pred = r_pred * opt_c
 
         elif flag.dataset == "ml":
             opt_c = 0.2
@@ -247,6 +248,7 @@ def main(flag=flag):
             phi = 0.1
             flag.rel_thresh = 0.7
             p_pred = p_pred * opt_c
+            r_pred = r_pred * opt_c
 
         t_pred = np.where(p_pred_t >= flag.thres, 1.0, 0.0)
         rel_pred = np.where(r_pred_t >= flag.rel_thresh, 1.0, 0.0)
