@@ -69,7 +69,7 @@ def main(flag=flag):
     flag.prop_add = flag.add + '/' + flag.prop_type + '/' + flag.dataset[-1] + '/'
     flag.rec_add = flag.add + '/' + flag.rec_type + '/' + flag.dataset[-1] + '/rec/' + flag.prop_type + '/'
 
-    for th in [0.5, 0.6, 0.7]:
+    for th in [0.6, 0.7]:
         for phi in [0.1, 0.2, 0.3]:
 
             cp10list_pred = []
@@ -341,7 +341,7 @@ def main(flag=flag):
 
                 if flag.dataset[-1] == 'd' or 'p':
                     for t in range(num_times):
-                        test_df_t = test_df[test_df["idx_time"] == t]
+                        test_df_t = vali_df[vali_df["idx_time"] == t]
                         user = tf.convert_to_tensor(test_df_t["idx_user"].to_numpy(), dtype=tf.int32)
                         item = tf.convert_to_tensor(test_df_t["idx_item"].to_numpy(), dtype=tf.int64)
                         test_t_data = tf.data.Dataset.from_tensor_slices((user, item))
@@ -487,7 +487,7 @@ def main(flag=flag):
                         #     evaluator.get_dataframes(test_df_t, plotpath + flag.rec_add, "pred_freq")
                 else:
                     for t in [0]:
-                        test_df_t = test_df[test_df["idx_time"] == t]
+                        test_df_t = vali_df[vali_df["idx_time"] == t]
                         user = tf.convert_to_tensor(test_df_t["idx_user"].to_numpy(), dtype=tf.int32)
                         item = tf.convert_to_tensor(test_df_t["idx_item"].to_numpy(), dtype=tf.int64)
                         test_t_data = tf.data.Dataset.from_tensor_slices((user, item))
