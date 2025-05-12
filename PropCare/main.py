@@ -482,6 +482,7 @@ def main(flag=flag):
                 if t + 1 == num_times:
                     evaluator.get_dataframes(test_df_t, plotpath + flag.rec_add, "pred")
                     evaluator.get_dataframes(test_df_t, plotpath + flag.rec_add, "pred_freq")
+                    evaluator.get_dataframes(test_df_t, plotpath + flag.rec_add, "personal_popular")
         else:
             for t in [0]:
                 test_df_t = test_df[test_df["idx_time"] == t]
@@ -619,6 +620,7 @@ def main(flag=flag):
 
                 evaluator.get_dataframes(test_df_t, plotpath + flag.rec_add, "pred")
                 evaluator.get_dataframes(test_df_t, plotpath + flag.rec_add, "pred_freq")
+                evaluator.get_dataframes(test_df_t, plotpath + flag.rec_add, "personal_popular")
 
         cp10_pred = np.mean(cp10_tmp_list_pred)
         cp100_pred = np.mean(cp100_tmp_list_pred)
