@@ -66,8 +66,8 @@ flag = parser.parse_args()
 
 def main(flag=flag):
 
-    flag.prop_add = flag.add + '/' + flag.prop_type + '/' + flag.dataset[-1] + '/'
-    flag.rec_add = flag.add + '/' + flag.rec_type + '/' + flag.dataset[-1] + '/rec/' + flag.prop_type + '/'
+    flag.prop_add = flag.add + '/' + flag.prop_type + '/' + flag.dataset[-1]+ '/' + flag.rec_type + '/'
+    flag.rec_add = flag.add + '/' + flag.prop_type + '/' + flag.dataset[-1]+ '/' + flag.rec_type + '/'
 
     cp10list_pred = []
     cp100list_pred = []
