@@ -7,6 +7,7 @@ from models import Causal_Model, Causal_Model_Mod
 # from CJBPR import CJBPR
 from scipy.stats import kendalltau, pearsonr
 from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 from tensorflow.keras.models import load_model
 import random
@@ -40,38 +41,68 @@ def count_freq(x):
     return np.asarray((unique, counts)).T
 
 def preprocess_data(datapath, dataset):
-    train_data = datapath / "data_train.csv"
-    vali_data = datapath / "data_vali.csv"
-    test_data = datapath / "data_test.csv"
-    train_df = pd.read_csv(train_data)
-    vali_df = pd.read_csv(vali_data)
-    test_df = pd.read_csv(test_data)
+    if dataset != "f":
+        train_data = datapath / "data_train.csv"
+        vali_data = datapath / "data_vali.csv"
+        test_data = datapath / "data_test.csv"
+        train_df = pd.read_csv(train_data)
+        vali_df = pd.read_csv(vali_data)
+        test_df = pd.read_csv(test_data)
 
-    # train_df, test_df = train_test_split(data, test_size=0.2, random_state=42)
-    # vali_df, train_df = train_test_split(train_df, test_size=0.5, random_state=42)
-    user_ids = np.sort(
-        pd.concat([train_df["idx_user"], vali_df["idx_user"], test_df["idx_user"]]).unique().tolist())
-    user2user_encoded = {x: i for i, x in enumerate(user_ids)}
-    item_ids = np.sort(
-        pd.concat([train_df["idx_item"], vali_df["idx_item"], test_df["idx_item"]]).unique().tolist())
-    item2item_encoded = {x: i for i, x in enumerate(item_ids)}
-    train_df["idx_user"] = train_df["idx_user"].map(user2user_encoded)
-    train_df["idx_item"] = train_df["idx_item"].map(item2item_encoded)
-    vali_df["idx_user"] = vali_df["idx_user"].map(user2user_encoded)
-    vali_df["idx_item"] = vali_df["idx_item"].map(item2item_encoded)
-    test_df["idx_user"] = test_df["idx_user"].map(user2user_encoded)
-    test_df["idx_item"] = test_df["idx_item"].map(item2item_encoded)
-    num_users = len(user_ids)
-    num_items = len(item_ids)
-    if dataset == "d" or dataset == "p":
-        num_times = len(train_df["idx_time"].unique().tolist())
-    else: 
-        num_times = 1
+        user_ids = np.sort(
+            pd.concat([train_df["idx_user"], vali_df["idx_user"], test_df["idx_user"]]).unique().tolist())
+        user2user_encoded = {x: i for i, x in enumerate(user_ids)}
+        item_ids = np.sort(
+            pd.concat([train_df["idx_item"], vali_df["idx_item"], test_df["idx_item"]]).unique().tolist())
+        item2item_encoded = {x: i for i, x in enumerate(item_ids)}
+        train_df["idx_user"] = train_df["idx_user"].map(user2user_encoded)
+        train_df["idx_item"] = train_df["idx_item"].map(item2item_encoded)
+        vali_df["idx_user"] = vali_df["idx_user"].map(user2user_encoded)
+        vali_df["idx_item"] = vali_df["idx_item"].map(item2item_encoded)
+        test_df["idx_user"] = test_df["idx_user"].map(user2user_encoded)
+        test_df["idx_item"] = test_df["idx_item"].map(item2item_encoded)
+        num_users = len(user_ids)
+        num_items = len(item_ids)
+        if dataset == "d" or dataset == "p":
+            num_times = len(train_df["idx_time"].unique().tolist())
+        else: 
+            num_times = 1
+            train_df["idx_time"] = 0
+            vali_df["idx_time"] = 0
+            test_df["idx_time"] = 0
+        train_df = train_df[["idx_user", "idx_item", "outcome", "idx_time", "propensity", "treated"]]
+        return train_df, vali_df, test_df, num_users, num_items, num_times
+    
+    else:
+        dataset = pd.read_csv(datapath)
+        dataset.rename(columns={"user_id": "idx_user", "item_id": "idx_item", "is_recommended": "treated", 
+                                "timestamp": "idx_time", "label": "outcome", "user_total_taps": "frequency"}, inplace = True)
+        dataset["personal_popular"] = dataset["frequency"]
+        dataset["propensity"] = dataset["treated"].map({1: 0.9999, 0: 0.0001})
+        dataset = dataset[["idx_user", "idx_item", "propensity", "treated", "outcome", "frequency", "personal_popular", "idx_time"]]
+        train_df, test_df = train_test_split(dataset, test_size = 0.2, random_state = 42)
+        # train_df, vali_df = train_test_split(train, test_size = 0.2, random_state = 42)
+
+        user_ids = np.sort(
+            pd.concat([train_df["idx_user"], test_df["idx_user"]]).unique().tolist())
+        user2user_encoded = {x: i for i, x in enumerate(user_ids)}
+        item_ids = np.sort(
+            pd.concat([train_df["idx_item"], test_df["idx_item"]]).unique().tolist())
+        item2item_encoded = {x: i for i, x in enumerate(item_ids)}
+        train_df["idx_user"] = train_df["idx_user"].map(user2user_encoded)
+        train_df["idx_item"] = train_df["idx_item"].map(item2item_encoded)
+        # vali_df["idx_user"] = vali_df["idx_user"].map(user2user_encoded)
+        # vali_df["idx_item"] = vali_df["idx_item"].map(item2item_encoded)
+        test_df["idx_user"] = test_df["idx_user"].map(user2user_encoded)
+        test_df["idx_item"] = test_df["idx_item"].map(item2item_encoded)
+        num_users = len(user_ids)
+        num_items = len(item_ids)
+        num_times = 0
         train_df["idx_time"] = 0
-        vali_df["idx_time"] = 0
+        # vali_df["idx_time"] = 0
         test_df["idx_time"] = 0
-    train_df = train_df[["idx_user", "idx_item", "outcome", "idx_time", "propensity", "treated"]]
-    return train_df, vali_df, test_df, num_users, num_items, num_times
+        return train_df, None, test_df, num_users, num_items, num_times
+
 
 def prepare_data(flag):
     dataset = flag.dataset[-1]
@@ -113,6 +144,10 @@ def prepare_data(flag):
     elif flag.dataset == "ml":
         print("ML-100k is used")
         data_path = Path("./CausalNBR/data/synthetic/ML_100k_logrank100_offset5.0_scaling1.0")
+        train_df, vali_df, test_df, num_users, num_items, num_times = preprocess_data(data_path, dataset)
+    elif flag.dataset == "f":
+        print("Finn-no is used")
+        data_path = Path("./CausalNBR/data/finn-no/real_data.csv")
         train_df, vali_df, test_df, num_users, num_items, num_times = preprocess_data(data_path, dataset)
     
     train_df_positive = train_df[train_df["outcome"] > 0]
