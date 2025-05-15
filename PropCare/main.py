@@ -264,7 +264,7 @@ def main(flag=flag):
             lr = 0.001
             cap = 0.5
             rf = 0.001
-            itr = 5e6
+            itr = 5e5
 
         if flag.rec_type == "orig":
             recommender = DLMF(num_users, num_items, capping_T = cap, 
@@ -672,7 +672,8 @@ def main(flag=flag):
             precision_tmp_list_pers_pop.append(evaluator.evaluate(test_df_t, 'PrecisionPP', 10))
 
             evaluator.get_dataframes(test_df_t, plotpath + flag.rec_add, "pred")
-            evaluator.get_dataframes(test_df_t, plotpath + flag.rec_add, "pred_freq")
+            evaluator.get_dataframes(test_df_t, plotpath + flag.rec_add, "pred_frequ")
+            evaluator.get_dataframes(test_df_t, plotpath + flag.rec_add, "pred_freqi")
             evaluator.get_dataframes(test_df_t, plotpath + flag.rec_add, "popularity")
 
         if flag.dataset != "f":
