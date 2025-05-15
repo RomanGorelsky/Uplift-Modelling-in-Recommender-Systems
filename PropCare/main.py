@@ -264,7 +264,7 @@ def main(flag=flag):
             lr = 0.001
             cap = 0.5
             rf = 0.001
-            itr = 5e5
+            itr = 5e6
 
         if flag.rec_type == "orig":
             recommender = DLMF(num_users, num_items, capping_T = cap, 
@@ -638,8 +638,8 @@ def main(flag=flag):
             popularity = train_df["idx_item"].value_counts().reset_index()
             popularity.columns = ["idx_item", "popularity"]
             test_df_t = test_df_t.merge(popularity, on="idx_item", how="left")
-            test_df_t['popularity'] = (test_df_t['popularity'] - np.min(test_df_t['popularity'])) \
-                                        / (np.max(test_df_t['popularity']) - np.min(test_df_t['popularity']))
+            test_df_t['popularity'] = (test_df_t['popularity'] - np.mean(test_df_t['popularity'])) \
+                                        / (np.std(test_df_t['popularity']))
             test_df_t['popularity'] = test_df_t['popularity'].fillna(0)
             test_df_t['personal_popular'] = test_df_t['personal_popular'] + test_df_t['popularity']
 
@@ -673,7 +673,7 @@ def main(flag=flag):
 
             evaluator.get_dataframes(test_df_t, plotpath + flag.rec_add, "pred")
             evaluator.get_dataframes(test_df_t, plotpath + flag.rec_add, "pred_freq")
-            evaluator.get_dataframes(test_df_t, plotpath + flag.rec_add, "personal_popular")
+            evaluator.get_dataframes(test_df_t, plotpath + flag.rec_add, "popularity")
 
         if flag.dataset != "f":
             cp10_pred = np.mean(cp10_tmp_list_pred)
