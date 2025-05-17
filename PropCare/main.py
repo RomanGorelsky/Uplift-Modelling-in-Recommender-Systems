@@ -579,8 +579,8 @@ def main(flag=flag):
             popularity = train_df["idx_item"].value_counts().reset_index()
             popularity.columns = ["idx_item", "popularity"]
             test_df_t = test_df_t.merge(popularity, on="idx_item", how="left")
-            test_df_t['popularity'] = (test_df_t['popularity'] - np.mean(test_df_t['popularity'])) \
-                                        / (np.std(test_df_t['popularity']))
+            test_df_t['popularity'] = (test_df_t['popularity'] - np.min(test_df_t['popularity'])) \
+                                            / (np.max(test_df_t['popularity']) - np.min(test_df_t['popularity']))
             test_df_t['popularity'] = test_df_t['popularity'].fillna(0)
             test_df_t['personal_popular'] = test_df_t['personal_popular'] + test_df_t['popularity']
 
