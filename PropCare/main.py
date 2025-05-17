@@ -217,40 +217,38 @@ def main(flag=flag):
 
             # break
 
-            if flag.dataset[-1] == "d" or "p":
+            if flag.dataset[-1] == "d":
                 flag.thres = 0.7
+                opt_c = 0.9
+                lr = 0.001
+                cap = 0.03
+                rf = 0.01
+                itr = 20e6
+                phi = 0.1
+                flag.rel_thresh = 0.5
 
-                if flag.dataset[-1] == "d":
-                    opt_c = 0.9
-                    lr = 0.001
-                    cap = 0.03
-                    rf = 0.01
-                    itr = 20e6
-                    phi = 0.1
-                    flag.rel_thresh = 0.5
-                else:
-                    opt_c = 0.8
-                    lr = 0.001
-                    cap = 0.5
-                    rf = 0.001
-                    itr = 70e6
-                    phi = 0.1
-                    flag.rel_thresh = 0.6
-                
-                p_pred = p_pred * opt_c
-                r_pred = r_pred * opt_c
+            if flag.dataset[-1] == "p":
+                flag.thres = 0.7
+                opt_c = 0.8
+                lr = 0.001
+                cap = 0.5
+                rf = 0.001
+                itr = 70e6
+                phi = 0.1
+                flag.rel_thresh = 0.6
 
-            elif flag.dataset == "ml":
+            if flag.dataset == "ml":
                 opt_c = 0.2
                 flag.thres = 0.65
                 lr = 0.001
                 cap = 0.3
                 rf = 0.1
-                itr = 100e6
+                itr = 5e5
                 phi = 0.1
                 flag.rel_thresh = 0.7
-                p_pred = p_pred * opt_c
-                r_pred = r_pred * opt_c
+            
+            p_pred = p_pred * opt_c
+            r_pred = r_pred * opt_c
 
             t_pred = np.where(p_pred_t >= flag.thres, 1.0, 0.0)
             rel_pred = np.where(r_pred_t >= flag.rel_thresh, 1.0, 0.0)
@@ -344,7 +342,7 @@ def main(flag=flag):
         precision_tmp_list_pop = []
         precision_tmp_list_pers_pop = []
 
-        if flag.dataset[-1] == 'd' or 'p':
+        if flag.dataset[-1] == 'd' or flag.dataset[-1] == 'p':
             for t in range(num_times):
                 test_df_t = test_df[test_df["idx_time"] == t]
                 user = tf.convert_to_tensor(test_df_t["idx_user"].to_numpy(), dtype=tf.int32)
@@ -537,27 +535,12 @@ def main(flag=flag):
                 test_df_t = test_df_t.merge(popularity, on="idx_item", how="left")
 
                 test_df_t["pred"] = recommender.predict(test_df_t)
-                test_df_t["pred_freq"] = recommender.predict_freq(test_df_t)
-                test_df_t["pred_freqi"] = recommender.predict_freqi(test_df_t)
-                test_df_t["pred_frequ"] = recommender.predict_frequ(test_df_t)
 
                 evaluator = Evaluator()
 
                 cp10_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'CPrecS', 10))
                 cp100_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'CPrecS', 100))
                 cdcg_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'CDCGS', 100000))
-
-                cp10_tmp_list_pred_freq.append(evaluator.evaluate(test_df_t, 'CPrecSF', 10))
-                cp100_tmp_list_pred_freq.append(evaluator.evaluate(test_df_t, 'CPrecSF', 100))
-                cdcg_tmp_list_pred_freq.append(evaluator.evaluate(test_df_t, 'CDCGSF', 100000))
-
-                cp10_tmp_list_pred_freqi.append(evaluator.evaluate(test_df_t, 'CPrecSFI', 10))
-                cp100_tmp_list_pred_freqi.append(evaluator.evaluate(test_df_t, 'CPrecSFI', 100))
-                cdcg_tmp_list_pred_freqi.append(evaluator.evaluate(test_df_t, 'CDCGSFI', 100000))
-                
-                cp10_tmp_list_pred_frequ.append(evaluator.evaluate(test_df_t, 'CPrecSFU', 10))
-                cp100_tmp_list_pred_frequ.append(evaluator.evaluate(test_df_t, 'CPrecSFU', 100))
-                cdcg_tmp_list_pred_frequ.append(evaluator.evaluate(test_df_t, 'CDCGSFu', 100000))
 
                 cp10_tmp_list_rel.append(evaluator.evaluate(test_df_t, 'CPrecR', 10))
                 cp100_tmp_list_rel.append(evaluator.evaluate(test_df_t, 'CPrecR', 100))
@@ -567,69 +550,27 @@ def main(flag=flag):
                 cp100_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'CPrecP', 100))
                 cdcg_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'CDCGP', 100000))
 
-                cp10_tmp_list_pers_pop.append(evaluator.evaluate(test_df_t, 'CPrecPP', 10))
-                cp100_tmp_list_pers_pop.append(evaluator.evaluate(test_df_t, 'CPrecPP', 100))
-                cdcg_tmp_list_pers_pop.append(evaluator.evaluate(test_df_t, 'CDCGPP', 100000))
-
                 ndcg_tmp_list_rel.append(evaluator.evaluate(test_df_t, 'NDCGR', 10))
                 ndcg_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'NDCGS', 10))
-                ndcg_tmp_list_pred_freq.append(evaluator.evaluate(test_df_t, 'NDCGSF', 10))
-                ndcg_tmp_list_pred_freqi.append(evaluator.evaluate(test_df_t, 'NDCGSFI', 10))
-                ndcg_tmp_list_pred_frequ.append(evaluator.evaluate(test_df_t, 'NDCGSFU', 10))
                 ndcg_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'NDCGP', 10))
-                ndcg_tmp_list_pers_pop.append(evaluator.evaluate(test_df_t, 'NDCGPP', 10))
 
                 recall_tmp_list_rel.append(evaluator.evaluate(test_df_t, 'RecallR', 10))
                 recall_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'RecallS', 10))
-                recall_tmp_list_pred_freq.append(evaluator.evaluate(test_df_t, 'RecallSF', 10))
-                recall_tmp_list_pred_freqi.append(evaluator.evaluate(test_df_t, 'RecallSFI', 10))
-                recall_tmp_list_pred_frequ.append(evaluator.evaluate(test_df_t, 'RecallSFU', 10))
                 recall_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'RecallP', 10))
-                recall_tmp_list_pers_pop.append(evaluator.evaluate(test_df_t, 'RecallPP', 10))
 
                 precision_tmp_list_rel.append(evaluator.evaluate(test_df_t, 'PrecisionR', 10))
                 precision_tmp_list_pred.append(evaluator.evaluate(test_df_t, 'PrecisionS', 10))
-                precision_tmp_list_pred_freq.append(evaluator.evaluate(test_df_t, 'PrecisionSF', 10))
-                precision_tmp_list_pred_freqi.append(evaluator.evaluate(test_df_t, 'PrecisionSFI', 10))
-                precision_tmp_list_pred_frequ.append(evaluator.evaluate(test_df_t, 'PrecisionSFU', 10))
                 precision_tmp_list_pop.append(evaluator.evaluate(test_df_t, 'PrecisionP', 10))
-                precision_tmp_list_pers_pop.append(evaluator.evaluate(test_df_t, 'PrecisionPP', 10))
 
                 kendall_score = evaluator.kendall_tau_per_user(test_df_t, 'idx_user', 'pred', 'relevance_estimate')
                 spearman_score = evaluator.spearman_per_user(test_df_t, 'idx_user', 'pred', 'relevance_estimate')
                 pos_diff = evaluator.avg_position_diff(test_df_t, 'idx_user', 'idx_item', 'pred', 'relevance_estimate')
 
-                kendall_score_freq = evaluator.kendall_tau_per_user(test_df_t, 'idx_user', 'pred_freq', 'relevance_estimate')
-                spearman_score_freq = evaluator.spearman_per_user(test_df_t, 'idx_user', 'pred_freq', 'relevance_estimate')
-                pos_diff_freq = evaluator.avg_position_diff(test_df_t, 'idx_user', 'idx_item', 'pred_freq', 'relevance_estimate')
-
-                kendall_score_freqi = evaluator.kendall_tau_per_user(test_df_t, 'idx_user', 'pred_freqi', 'relevance_estimate')
-                spearman_score_freqi = evaluator.spearman_per_user(test_df_t, 'idx_user', 'pred_freqi', 'relevance_estimate')
-                pos_diff_freqi = evaluator.avg_position_diff(test_df_t, 'idx_user', 'idx_item', 'pred_freqi', 'relevance_estimate')
-
-                kendall_score_frequ = evaluator.kendall_tau_per_user(test_df_t, 'idx_user', 'pred_frequ', 'relevance_estimate')
-                spearman_score_frequ = evaluator.spearman_per_user(test_df_t, 'idx_user', 'pred_frequ', 'relevance_estimate')
-                pos_diff_frequ = evaluator.avg_position_diff(test_df_t, 'idx_user', 'idx_item', 'pred_frequ', 'relevance_estimate')
-
                 print(f"Kendall Tau: {kendall_score:.4f}")
                 print(f"Spearman Rho: {spearman_score:.4f}")
                 print(f"Average Rank Position Difference: {pos_diff:.4f}")
 
-                print(f"Kendall Tau (freq): {kendall_score_freq:.4f}")
-                print(f"Spearman Rho (freq): {spearman_score_freq:.4f}")
-                print(f"Average Rank Position Difference (freq): {pos_diff_freq:.4f}")
-
-                print(f"Kendall Tau (freqi): {kendall_score_freqi:.4f}")
-                print(f"Spearman Rho (freqi): {spearman_score_freqi:.4f}")
-                print(f"Average Rank Position Difference (freqi): {pos_diff_freqi:.4f}")
-
-                print(f"Kendall Tau (frequ): {kendall_score_frequ:.4f}")
-                print(f"Spearman Rho (frequ): {spearman_score_frequ:.4f}")
-                print(f"Average Rank Position Difference (frequ): {pos_diff_frequ:.4f}")
-
                 evaluator.get_dataframes(test_df_t, plotpath + flag.rec_add, "pred")
-                evaluator.get_dataframes(test_df_t, plotpath + flag.rec_add, "pred_freq")
-                evaluator.get_dataframes(test_df_t, plotpath + flag.rec_add, "personal_popular")
         
         if flag.dataset == "f":
 
@@ -681,17 +622,18 @@ def main(flag=flag):
             cp100_pred = np.mean(cp100_tmp_list_pred)
             cdcg_pred = np.mean(cdcg_tmp_list_pred)
 
-            cp10_pred_freq = np.mean(cp10_tmp_list_pred_freq)
-            cp100_pred_freq = np.mean(cp100_tmp_list_pred_freq)
-            cdcg_pred_freq = np.mean(cdcg_tmp_list_pred_freq)
+            if flag.dataset != "ml":
+                cp10_pred_freq = np.mean(cp10_tmp_list_pred_freq)
+                cp100_pred_freq = np.mean(cp100_tmp_list_pred_freq)
+                cdcg_pred_freq = np.mean(cdcg_tmp_list_pred_freq)
 
-            cp10_pred_freqi = np.mean(cp10_tmp_list_pred_freqi)
-            cp100_pred_freqi = np.mean(cp100_tmp_list_pred_freqi)
-            cdcg_pred_freqi = np.mean(cdcg_tmp_list_pred_freqi)
+                cp10_pred_freqi = np.mean(cp10_tmp_list_pred_freqi)
+                cp100_pred_freqi = np.mean(cp100_tmp_list_pred_freqi)
+                cdcg_pred_freqi = np.mean(cdcg_tmp_list_pred_freqi)
 
-            cp10_pred_frequ = np.mean(cp10_tmp_list_pred_frequ)
-            cp100_pred_frequ = np.mean(cp100_tmp_list_pred_frequ)
-            cdcg_pred_frequ = np.mean(cdcg_tmp_list_pred_frequ)
+                cp10_pred_frequ = np.mean(cp10_tmp_list_pred_frequ)
+                cp100_pred_frequ = np.mean(cp100_tmp_list_pred_frequ)
+                cdcg_pred_frequ = np.mean(cdcg_tmp_list_pred_frequ)
 
             cp10_rel = np.mean(cp10_tmp_list_rel)
             cp100_rel = np.mean(cp100_tmp_list_rel)
@@ -701,53 +643,61 @@ def main(flag=flag):
             cp100_pop = np.mean(cp100_tmp_list_pop)
             cdcg_pop = np.mean(cdcg_tmp_list_pop)
 
-            cp10_pers_pop = np.mean(cp10_tmp_list_pers_pop)
-            cp100_pers_pop = np.mean(cp100_tmp_list_pers_pop)
-            cdcg_pers_pop = np.mean(cdcg_tmp_list_pers_pop)
+            if flag.dataset != "ml":
+                cp10_pers_pop = np.mean(cp10_tmp_list_pers_pop)
+                cp100_pers_pop = np.mean(cp100_tmp_list_pers_pop)
+                cdcg_pers_pop = np.mean(cdcg_tmp_list_pers_pop)
 
         if flag.dataset != "f":
             ndcg_rel = np.mean(ndcg_tmp_list_rel)
         ndcg_pred = np.mean(ndcg_tmp_list_pred)
-        ndcg_pred_freq = np.mean(ndcg_tmp_list_pred_freq)
-        ndcg_pred_freqi = np.mean(ndcg_tmp_list_pred_freqi)
-        ndcg_pred_frequ = np.mean(ndcg_tmp_list_pred_frequ)
+        if flag.dataset != "ml":
+            ndcg_pred_freq = np.mean(ndcg_tmp_list_pred_freq)
+            ndcg_pred_freqi = np.mean(ndcg_tmp_list_pred_freqi)
+            ndcg_pred_frequ = np.mean(ndcg_tmp_list_pred_frequ)
         ndcg_pop = np.mean(ndcg_tmp_list_pop)
-        ndcg_pers_pop = np.mean(ndcg_tmp_list_pers_pop)
+        if flag.dataset != "ml":
+            ndcg_pers_pop = np.mean(ndcg_tmp_list_pers_pop)
 
         if flag.dataset != "f":
             recall_rel = np.mean(recall_tmp_list_rel)
         recall_pred = np.mean(recall_tmp_list_pred)
-        recall_pred_freq = np.mean(recall_tmp_list_pred_freq)
-        recall_pred_freqi = np.mean(recall_tmp_list_pred_freqi)
-        recall_pred_frequ = np.mean(recall_tmp_list_pred_frequ)
+        if flag.dataset != "ml":
+            recall_pred_freq = np.mean(recall_tmp_list_pred_freq)
+            recall_pred_freqi = np.mean(recall_tmp_list_pred_freqi)
+            recall_pred_frequ = np.mean(recall_tmp_list_pred_frequ)
         recall_pop = np.mean(recall_tmp_list_pop)
-        recall_pers_pop = np.mean(recall_tmp_list_pers_pop)
+        if flag.dataset != "ml":
+            recall_pers_pop = np.mean(recall_tmp_list_pers_pop)
 
         if flag.dataset != "f":
             precision_rel = np.mean(precision_tmp_list_rel)
         precision_pred = np.mean(precision_tmp_list_pred)
-        precision_pred_freq = np.mean(precision_tmp_list_pred_freq)
-        precision_pred_freqi = np.mean(precision_tmp_list_pred_freqi)
-        precision_pred_frequ = np.mean(precision_tmp_list_pred_frequ)
+        if flag.dataset != "ml":
+            precision_pred_freq = np.mean(precision_tmp_list_pred_freq)
+            precision_pred_freqi = np.mean(precision_tmp_list_pred_freqi)
+            precision_pred_frequ = np.mean(precision_tmp_list_pred_frequ)
         precision_pop = np.mean(precision_tmp_list_pop)
-        precision_pers_pop = np.mean(precision_tmp_list_pers_pop)
+        if flag.dataset != "ml":
+            precision_pers_pop = np.mean(precision_tmp_list_pers_pop)
 
         if flag.dataset != "f":
             cp10list_pred.append(cp10_pred)
             cp100list_pred.append(cp100_pred)
             cdcglist_pred.append(cdcg_pred)
 
-            cp10list_pred_freq.append(cp10_pred_freq)
-            cp100list_pred_freq.append(cp100_pred_freq)
-            cdcglist_pred_freq.append(cdcg_pred_freq)
+            if flag.dataset != "ml":
+                cp10list_pred_freq.append(cp10_pred_freq)
+                cp100list_pred_freq.append(cp100_pred_freq)
+                cdcglist_pred_freq.append(cdcg_pred_freq)
 
-            cp10list_pred_freqi.append(cp10_pred_freqi)
-            cp100list_pred_freqi.append(cp100_pred_freqi)
-            cdcglist_pred_freqi.append(cdcg_pred_freqi)
-            
-            cp10list_pred_frequ.append(cp10_pred_frequ)
-            cp100list_pred_frequ.append(cp100_pred_frequ)
-            cdcglist_pred_frequ.append(cdcg_pred_frequ)
+                cp10list_pred_freqi.append(cp10_pred_freqi)
+                cp100list_pred_freqi.append(cp100_pred_freqi)
+                cdcglist_pred_freqi.append(cdcg_pred_freqi)
+                
+                cp10list_pred_frequ.append(cp10_pred_frequ)
+                cp100list_pred_frequ.append(cp100_pred_frequ)
+                cdcglist_pred_frequ.append(cdcg_pred_frequ)
 
             cp10list_rel.append(cp10_rel)
             cp100list_rel.append(cp100_rel)
@@ -757,90 +707,109 @@ def main(flag=flag):
             cp100list_pop.append(cp100_pop)
             cdcglist_pop.append(cdcg_pop)
 
-            cp10list_pers_pop.append(cp10_pers_pop)
-            cp100list_pers_pop.append(cp100_pers_pop)
-            cdcglist_pers_pop.append(cdcg_pers_pop)
+            if flag.dataset != "ml":
+                cp10list_pers_pop.append(cp10_pers_pop)
+                cp100list_pers_pop.append(cp100_pers_pop)
+                cdcglist_pers_pop.append(cdcg_pers_pop)
 
         if flag.dataset != "f":
             ndcglist_rel.append(ndcg_rel)
         ndcglist_pred.append(ndcg_pred)
-        ndcglist_pred_freq.append(ndcg_pred_freq)
-        ndcglist_pred_freqi.append(ndcg_pred_freqi)
-        ndcglist_pred_frequ.append(ndcg_pred_frequ)
+        if flag.dataset != "ml":
+            ndcglist_pred_freq.append(ndcg_pred_freq)
+            ndcglist_pred_freqi.append(ndcg_pred_freqi)
+            ndcglist_pred_frequ.append(ndcg_pred_frequ)
         ndcglist_pop.append(ndcg_pop)
-        ndcglist_pers_pop.append(ndcg_pers_pop)
+        if flag.dataset != "ml":
+            ndcglist_pers_pop.append(ndcg_pers_pop)
 
         if flag.dataset != "f":
             recalllist_rel.append(recall_rel)
         recalllist_pred.append(recall_pred)
-        recalllist_pred_freq.append(recall_pred_freq)
-        recalllist_pred_freqi.append(recall_pred_freqi)
-        recalllist_pred_frequ.append(recall_pred_frequ)
+        if flag.dataset != "ml":
+            recalllist_pred_freq.append(recall_pred_freq)
+            recalllist_pred_freqi.append(recall_pred_freqi)
+            recalllist_pred_frequ.append(recall_pred_frequ)
         recalllist_pop.append(recall_pop)
-        recalllist_pers_pop.append(recall_pers_pop)
+        if flag.dataset != "ml":
+            recalllist_pers_pop.append(recall_pers_pop)
 
         if flag.dataset != "f":
             precisionlist_rel.append(precision_rel)
         precisionlist_pred.append(precision_pred)
-        precisionlist_pred_freq.append(precision_pred_freq)
-        precisionlist_pred_freqi.append(precision_pred_freqi)
-        precisionlist_pred_frequ.append(precision_pred_frequ)
+        if flag.dataset != "ml":
+            precisionlist_pred_freq.append(precision_pred_freq)
+            precisionlist_pred_freqi.append(precision_pred_freqi)
+            precisionlist_pred_frequ.append(precision_pred_frequ)
         precisionlist_pop.append(precision_pop)
-        precisionlist_pers_pop.append(precision_pers_pop)       
+        if flag.dataset != "ml":
+            precisionlist_pers_pop.append(precision_pers_pop)       
 
     with open(plotpath + "/result_" + flag.dataset + ".txt", "a+") as f:
         if flag.dataset != "f":
             print("Models used: Propcare - ", flag.prop_type, ", Recommender - ", flag.rec_type, file=f)
             print("CP10S:", np.mean(cp10list_pred), np.std(cp10list_pred), file=f)
-            print("CP10SF:", np.mean(cp10list_pred_freq), np.std(cp10list_pred_freq), file=f)
-            print("CP10SFI:", np.mean(cp10list_pred_freqi), np.std(cp10list_pred_freqi), file=f)
-            print("CP10SFU:", np.mean(cp10list_pred_frequ), np.std(cp10list_pred_frequ), file=f)
+            if flag.dataset != "ml":
+                print("CP10SF:", np.mean(cp10list_pred_freq), np.std(cp10list_pred_freq), file=f)
+                print("CP10SFI:", np.mean(cp10list_pred_freqi), np.std(cp10list_pred_freqi), file=f)
+                print("CP10SFU:", np.mean(cp10list_pred_frequ), np.std(cp10list_pred_frequ), file=f)
             print("CP10R:", np.mean(cp10list_rel), np.std(cp10list_rel), file=f)
             print("CP10P:", np.mean(cp10list_pop), np.std(cp10list_pop), file=f)
-            print("CP10PP:", np.mean(cp10list_pers_pop), np.std(cp10list_pers_pop), file=f)
+            if flag.dataset != "ml":
+                print("CP10PP:", np.mean(cp10list_pers_pop), np.std(cp10list_pers_pop), file=f)
 
             print("CP100S:", np.mean(cp100list_pred), np.std(cp100list_pred), file=f)
-            print("CP100SF:", np.mean(cp100list_pred_freq), np.std(cp100list_pred_freq), file=f)
-            print("CP100SFI:", np.mean(cp100list_pred_freqi), np.std(cp100list_pred_freqi), file=f)
-            print("CP100SFU:", np.mean(cp100list_pred_frequ), np.std(cp100list_pred_frequ), file=f)
+            if flag.dataset != "ml":
+                print("CP100SF:", np.mean(cp100list_pred_freq), np.std(cp100list_pred_freq), file=f)
+                print("CP100SFI:", np.mean(cp100list_pred_freqi), np.std(cp100list_pred_freqi), file=f)
+                print("CP100SFU:", np.mean(cp100list_pred_frequ), np.std(cp100list_pred_frequ), file=f)
             print("CP100R:", np.mean(cp100list_rel), np.std(cp100list_rel), file=f)
             print("CP100P:", np.mean(cp100list_pop), np.std(cp100list_pop), file=f)
-            print("CP100PP:", np.mean(cp100list_pers_pop), np.std(cp100list_pers_pop), file=f)
+            if flag.dataset != "ml":
+                print("CP100PP:", np.mean(cp100list_pers_pop), np.std(cp100list_pers_pop), file=f)
             
             print("CDCGS:", np.mean(cdcglist_pred), np.std(cdcglist_pred), file=f)
-            print("CDCGSF:", np.mean(cdcglist_pred_freq), np.std(cdcglist_pred_freq), file=f)
-            print("CDCGSFI:", np.mean(cdcglist_pred_freqi), np.std(cdcglist_pred_freqi), file=f)
-            print("CDCGSFU:", np.mean(cdcglist_pred_frequ), np.std(cdcglist_pred_frequ), file=f)
+            if flag.dataset != "ml":
+                print("CDCGSF:", np.mean(cdcglist_pred_freq), np.std(cdcglist_pred_freq), file=f)
+                print("CDCGSFI:", np.mean(cdcglist_pred_freqi), np.std(cdcglist_pred_freqi), file=f)
+                print("CDCGSFU:", np.mean(cdcglist_pred_frequ), np.std(cdcglist_pred_frequ), file=f)
             print("CDCGR:", np.mean(cdcglist_rel), np.std(cdcglist_rel), file=f)
             print("CDCGP:", np.mean(cdcglist_pop), np.std(cdcglist_pop), file=f)
-            print("CDCGPP:", np.mean(cdcglist_pers_pop), np.std(cdcglist_pers_pop), file=f)
+            if flag.dataset != "ml":
+                print("CDCGPP:", np.mean(cdcglist_pers_pop), np.std(cdcglist_pers_pop), file=f)
 
         print("NDCG10S:", np.mean(ndcglist_pred), np.std(ndcglist_pred), file=f)
-        print("NDCG10SF:", np.mean(ndcglist_pred_freq), np.std(ndcglist_pred_freq), file=f)
-        print("NDCG10SFI:", np.mean(ndcglist_pred_freqi), np.std(ndcglist_pred_freqi), file=f)
-        print("NDCG10SFU:", np.mean(ndcglist_pred_frequ), np.std(ndcglist_pred_frequ), file=f)
+        if flag.dataset != "ml":
+            print("NDCG10SF:", np.mean(ndcglist_pred_freq), np.std(ndcglist_pred_freq), file=f)
+            print("NDCG10SFI:", np.mean(ndcglist_pred_freqi), np.std(ndcglist_pred_freqi), file=f)
+            print("NDCG10SFU:", np.mean(ndcglist_pred_frequ), np.std(ndcglist_pred_frequ), file=f)
         if flag.dataset != "f":
             print("NDCG10R:", np.mean(ndcglist_rel), np.std(ndcglist_rel), file=f)
         print("NDCG10P:", np.mean(ndcglist_pop), np.std(ndcglist_pop), file=f)
-        print("NDCG10PP:", np.mean(ndcglist_pers_pop), np.std(ndcglist_pers_pop), file=f)
+        if flag.dataset != "ml":
+            print("NDCG10PP:", np.mean(ndcglist_pers_pop), np.std(ndcglist_pers_pop), file=f)
 
         print("Recall10S:", np.mean(recalllist_pred), np.std(recalllist_pred), file=f)
-        print("Recall10SF:", np.mean(recalllist_pred_freq), np.std(recalllist_pred_freq), file=f)
-        print("Recall10SFI:", np.mean(recalllist_pred_freqi), np.std(recalllist_pred_freqi), file=f)
-        print("Recall10SFU:", np.mean(recalllist_pred_frequ), np.std(recalllist_pred_frequ), file=f)
+        if flag.dataset != "ml":
+            print("Recall10SF:", np.mean(recalllist_pred_freq), np.std(recalllist_pred_freq), file=f)
+            print("Recall10SFI:", np.mean(recalllist_pred_freqi), np.std(recalllist_pred_freqi), file=f)
+            print("Recall10SFU:", np.mean(recalllist_pred_frequ), np.std(recalllist_pred_frequ), file=f)
         if flag.dataset != "f":
             print("Recall10R:", np.mean(recalllist_rel), np.std(recalllist_rel), file=f)
         print("Recall10P:", np.mean(recalllist_pop), np.std(recalllist_pop), file=f)
-        print("Recall10PP:", np.mean(recalllist_pers_pop), np.std(recalllist_pers_pop), file=f)
+        if flag.dataset != "ml":
+            print("Recall10PP:", np.mean(recalllist_pers_pop), np.std(recalllist_pers_pop), file=f)
 
         print("Precision10S:", np.mean(precisionlist_pred), np.std(precisionlist_pred), file=f)
-        print("Precision10SF:", np.mean(precisionlist_pred_freq), np.std(precisionlist_pred_freq), file=f)
-        print("Precision10SFI:", np.mean(precisionlist_pred_freqi), np.std(precisionlist_pred_freqi), file=f)
-        print("Precision10SFU:", np.mean(precisionlist_pred_frequ), np.std(precisionlist_pred_frequ), file=f)
+        if flag.dataset != "ml":
+            print("Precision10SF:", np.mean(precisionlist_pred_freq), np.std(precisionlist_pred_freq), file=f)
+            print("Precision10SFI:", np.mean(precisionlist_pred_freqi), np.std(precisionlist_pred_freqi), file=f)
+            print("Precision10SFU:", np.mean(precisionlist_pred_frequ), np.std(precisionlist_pred_frequ), file=f)
         if flag.dataset != "f":
             print("Precision10R:", np.mean(precisionlist_rel), np.std(precisionlist_rel), file=f)
         print("Precision10P:", np.mean(precisionlist_pop), np.std(precisionlist_pop), file=f) 
-        print("Precision10PP:", np.mean(precisionlist_pers_pop), np.std(precisionlist_pers_pop), file=f) 
+        if flag.dataset != "ml":
+            print("Precision10PP:", np.mean(precisionlist_pers_pop), np.std(precisionlist_pers_pop), file=f) 
         print("--------------------------------", file=f)    
             
 if __name__ == "__main__":
