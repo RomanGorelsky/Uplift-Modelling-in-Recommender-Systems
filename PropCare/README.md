@@ -1,6 +1,6 @@
 ## How to run:
 
-1. Download from the original dataset from the source and generate the dataset as guided (https://arxiv.org/abs/2008.04563 (DH), https://arxiv.org/abs/2012.09442 (ML), https://github.com/anamarina/RecSys_course/blob/2025/week13/seminar.ipynb (F)).
+1. Download from the original dataset from the source and generate the dataset as guided (https://arxiv.org/abs/2008.04563 (DH), https://arxiv.org/abs/2012.09442 (ML), https://github.com/finn-no/recsys_slates_dataset (F)).
 
 2. Modify the path to dataset in `prepare_data` of train.py
 
